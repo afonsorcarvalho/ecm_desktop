@@ -9,6 +9,7 @@ directories:
 files:
   - dist-electron/**/*
   - renderer/out/**/*
+  - resources/**/*
   - package.json
 
 asar: true

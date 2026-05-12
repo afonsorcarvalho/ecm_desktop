@@ -62,6 +62,7 @@ function createMainWindow() {
     backgroundColor: '#0b0d12',
     show: false,
     autoHideMenuBar: true,
+    icon: path.join(__dirname, '..', 'resources', 'icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -126,14 +127,25 @@ function createMainWindow() {
 }
 
 function createTray() {
-  const iconPath = path.join(__dirname, '..', 'resources', 'tray-icon.png')
-  try {
-    const icon = nativeImage.createFromPath(iconPath)
-    tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon)
-  } catch {
-    tray = new Tray(nativeImage.createEmpty())
+  // Em prod (asar) `__dirname` = app.asar/dist-electron. resources/ está
+  // no nível acima (dentro do .asar também — está no `files` glob do builder).
+  // tenta .ico (Windows nativo) → fallback .png
+  const base = path.join(__dirname, '..', 'resources')
+  const candidates = [
+    path.join(base, 'tray-icon.ico'),
+    path.join(base, 'tray-icon.png'),
+    path.join(base, 'icon.ico'),
+    path.join(base, 'icon.png'),
+  ]
+  let icon = nativeImage.createEmpty()
+  for (const p of candidates) {
+    try {
+      const img = nativeImage.createFromPath(p)
+      if (!img.isEmpty()) { icon = img; break }
+    } catch { /* skip */ }
   }
-  tray.setToolTip('ECM Desktop')
+  tray = new Tray(icon)
+  tray.setToolTip('AFR ECM Desktop')
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Abrir', click: () => mainWindow?.show() },
     { type: 'separator' },
