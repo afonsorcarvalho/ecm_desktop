@@ -204,14 +204,14 @@ export default function HomePage() {
     toast.success(`${items.length} arquivo(s) enviados à fila`)
   }
 
-  if (!isAuthenticated) {
-    return <div className="grid place-items-center h-screen text-ink-muted">Restaurando sessão…</div>
-  }
-
   const sortedFiles = useMemo(() => {
     if (!files.data) return []
     return sortFiles(files.data, sort)
   }, [files.data, sort])
+
+  if (!isAuthenticated) {
+    return <div className="grid place-items-center h-screen text-ink-muted">Restaurando sessão…</div>
+  }
 
   const selectedFile = sortedFiles.find((f) => f.id === selectedFileId) || null
 
