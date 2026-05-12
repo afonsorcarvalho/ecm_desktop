@@ -89,6 +89,17 @@ function createMainWindow() {
     shell.openExternal(url)
     return { action: 'deny' }
   })
+
+  // Bloqueia navegação por drag-drop de arquivos do Explorer.
+  // Sem isso, Electron tenta navegar para file:///C:/... ao soltar arquivo,
+  // substituindo o app pelo conteúdo do arquivo.
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const allowedDev = isDev && url.startsWith(RENDERER_DEV_URL)
+    const allowedProd = !isDev && url.startsWith('file://')
+    if (!allowedDev && !allowedProd) {
+      event.preventDefault()
+    }
+  })
 }
 
 function createTray() {
