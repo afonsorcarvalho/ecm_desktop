@@ -75,7 +75,24 @@ function createMainWindow() {
     mainWindow.webContents.openDevTools({ mode: 'detach' })
   } else {
     mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'out', 'index.html'))
+    // Habilita DevTools em prod também (F12 / Ctrl+Shift+I). Ajuda diagnosticar
+    // tela em branco. Pode esconder por padrão removendo openDevTools.
+    if (process.env.ECM_OPEN_DEVTOOLS === '1') {
+      mainWindow.webContents.openDevTools({ mode: 'detach' })
+    }
   }
+
+  // Log de erros do renderer pra main process (visível em terminal/console
+  // do Windows quando rodar via cmd; útil pra diagnosticar tela preta).
+  mainWindow.webContents.on('render-process-gone', (_e, details) => {
+    console.error('[renderer crashed]', details)
+  })
+  mainWindow.webContents.on('did-fail-load', (_e, code, desc, url) => {
+    console.error('[renderer fail-load]', code, desc, url)
+  })
+  mainWindow.webContents.on('console-message', (_e, level, message, line, src) => {
+    if (level >= 2) console.warn('[renderer console]', message, src + ':' + line)
+  })
 
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show()

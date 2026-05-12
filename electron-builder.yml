@@ -18,6 +18,9 @@ win:
     - target: nsis
       arch: [x64]
   artifactName: ${productName}-${version}-setup.${ext}
+  # Cross-build Linux→Windows: pula assinatura + edição de PE (que requer wine).
+  # Pra release oficial, build no Windows com certificado.
+  signAndEditExecutable: false
 
 nsis:
   oneClick: false

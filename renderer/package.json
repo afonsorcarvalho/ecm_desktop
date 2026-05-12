@@ -6,7 +6,7 @@
     "dev": "next dev -p 3000",
     "postinstall": "node -e \"const fs=require('fs'),p=require('path');const src=p.join('node_modules','pdfjs-dist','build','pdf.worker.min.mjs');if(fs.existsSync(src)){fs.mkdirSync('public',{recursive:true});fs.copyFileSync(src,p.join('public','pdf.worker.min.mjs'));console.log('pdfjs worker copiado')}\"",
     "build": "next build",
-    "build:export": "cross-env ELECTRON_EXPORT=1 next build",
+    "build:export": "node scripts/build-export.mjs",
     "export": "echo 'use build:export'",
     "lint": "next lint",
     "start": "next start"

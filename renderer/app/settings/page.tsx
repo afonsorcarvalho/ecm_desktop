@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useNav } from '@/lib/nav'
 import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/authStore'
 import { useSettingsStore } from '@/store/settingsStore'
@@ -11,7 +11,7 @@ import toast from 'react-hot-toast'
 import { ArrowLeft, FolderOpen, Power } from 'lucide-react'
 
 export default function SettingsPage() {
-  const router = useRouter()
+  const router = useNav()
   const { baseUrl, db, username, logout } = useAuthStore()
   const s = useSettingsStore()
   const setS = useSettingsStore((st) => st.set)

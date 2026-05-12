@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useNav } from '@/lib/nav'
 import { useAuthStore } from '@/store/authStore'
 import { useEcmStore } from '@/store/ecmStore'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -35,7 +35,7 @@ import { useOcrNotifier } from '@/hooks/useOcrNotifier'
 import { BulkActionBar } from '@/components/BulkActionBar'
 
 export default function HomePage() {
-  const router = useRouter()
+  const router = useNav()
   const qc = useQueryClient()
   const { isAuthenticated, restore, username, baseUrl } = useAuthStore()
   const {

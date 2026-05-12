@@ -3,13 +3,13 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { useTheme } from 'next-themes'
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useNav } from '@/lib/nav'
 import { Settings, LogOut, Moon, Sun, User as UserIcon, RefreshCw } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useUpdater } from '@/hooks/useUpdater'
 
 export function UserMenu() {
-  const router = useRouter()
+  const router = useNav()
   const { username, baseUrl, logout } = useAuthStore()
   const { theme, setTheme } = useTheme()
   const { check: checkUpdates } = useUpdater()

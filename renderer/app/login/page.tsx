@@ -1,13 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useNav } from '@/lib/nav'
 import { useAuthStore } from '@/store/authStore'
 import toast from 'react-hot-toast'
 import { LockKeyhole } from 'lucide-react'
 
 export default function LoginPage() {
-  const router = useRouter()
+  const router = useNav()
   const { configure, login } = useAuthStore()
   const [baseUrl, setBaseUrl] = useState('http://localhost:8083')
   const [db, setDb] = useState('odoo_ecm_test')
