@@ -35,6 +35,13 @@ function readBase64(file: File): Promise<string> {
   })
 }
 
+function notifyOS(title: string, body?: string) {
+  const ecm = (typeof window !== 'undefined' ? (window as any).ecm : null)
+  if (ecm?.app?.notify) {
+    ecm.app.notify(title, body).catch(() => { /* silent */ })
+  }
+}
+
 export function useUploadQueue() {
   const [jobs, setJobs] = useState<UploadJob[]>([])
   const jobsRef = useRef<UploadJob[]>([])
@@ -61,8 +68,10 @@ export function useUploadQueue() {
         tagIds: job.tagIds,
       })
       updateJob(job.id, { status: 'done', progress: 100, serverId })
+      notifyOS('Upload concluído', job.name)
     } catch (e: any) {
       updateJob(job.id, { status: 'failed', error: e?.message || 'Falha' })
+      notifyOS('Falha no upload', job.name)
     } finally {
       runningRef.current--
       // dispara próximo da fila

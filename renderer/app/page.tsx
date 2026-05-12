@@ -31,6 +31,7 @@ import { SearchResults } from '@/components/SearchResults'
 import { FilterChips } from '@/components/FilterChips'
 import { useFileSearch, SearchFilters } from '@/hooks/useFileSearch'
 import { useUpdater } from '@/hooks/useUpdater'
+import { useOcrNotifier } from '@/hooks/useOcrNotifier'
 
 export default function HomePage() {
   const router = useRouter()
@@ -180,6 +181,9 @@ export default function HomePage() {
       return pending ? 5000 : false
     },
   })
+
+  // notifica OS quando OCR transita de pending/processing → done/failed
+  useOcrNotifier(files.data)
 
   // quando upload termina, refetch lista
   useEffect(() => {
