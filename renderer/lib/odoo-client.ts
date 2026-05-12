@@ -34,9 +34,15 @@ class OdooClient {
 
   configure(baseUrl: string) {
     this.baseUrl = normalizeUrl(baseUrl)
-    const isElectron = typeof window !== 'undefined' && Boolean((window as any).ecm)
-    // Browser: usa proxy Next.js /api/odoo (evita CORS). Electron: fetch direto.
-    const useProxy = !isElectron && typeof window !== 'undefined'
+    // Usa proxy /api/odoo (Next.js route) SEMPRE que renderer estiver servido
+    // via HTTP/HTTPS — inclui dev mode em Electron (Next.js localhost:3000)
+    // e browser puro. Production build do Electron carrega via file:// e aí
+    // não há proxy disponível → fetch direto (Electron tem CSP/CORS relaxado
+    // pra renderer file://).
+    const isHttp =
+      typeof window !== 'undefined' &&
+      /^https?:$/i.test(window.location.protocol)
+    const useProxy = isHttp
     this.http = axios.create({
       baseURL: useProxy ? '/api/odoo' : this.baseUrl,
       withCredentials: true,
