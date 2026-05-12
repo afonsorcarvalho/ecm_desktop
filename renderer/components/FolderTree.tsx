@@ -12,8 +12,8 @@ interface Props {
   onNewFolder?: (parentId: number | null) => void
   onRename?: (dir: EcmDirectory) => void
   onDelete?: (dir: EcmDirectory) => void
-  /** chamado quando arquivo é solto numa pasta (id, targetDirId) */
-  onDropFile?: (fileId: number, targetDirId: number) => void
+  /** chamado quando arquivo(s) solto(s) numa pasta. fileIds aceita multi-seleção. */
+  onDropFile?: (fileIds: number[], targetDirId: number) => void
   /** chamado quando pasta é solta noutra (sourceId, targetDirId) */
   onDropDirectory?: (sourceId: number, targetDirId: number) => void
 }
@@ -110,7 +110,7 @@ function TreeRow({
   onNewFolder?: (parentId: number | null) => void;
   onRename?: (dir: EcmDirectory) => void;
   onDelete?: (dir: EcmDirectory) => void;
-  onDropFile?: (fileId: number, targetDirId: number) => void;
+  onDropFile?: (fileIds: number[], targetDirId: number) => void;
   onDropDirectory?: (sourceId: number, targetDirId: number) => void;
   descendantsOf?: Map<number, Set<number>>;
 }) {
@@ -147,8 +147,8 @@ function TreeRow({
     const fileData = e.dataTransfer.getData('application/x-ecm-file')
     if (fileData && onDropFile) {
       e.preventDefault()
-      const fid = Number(fileData)
-      if (Number.isFinite(fid)) onDropFile(fid, node.id)
+      const ids = fileData.split(',').map((s) => Number(s.trim())).filter((n) => Number.isFinite(n))
+      if (ids.length) onDropFile(ids, node.id)
       return
     }
     const dirData = e.dataTransfer.getData('application/x-ecm-dir')

@@ -32,12 +32,17 @@ import { FilterChips } from '@/components/FilterChips'
 import { useFileSearch, SearchFilters } from '@/hooks/useFileSearch'
 import { useUpdater } from '@/hooks/useUpdater'
 import { useOcrNotifier } from '@/hooks/useOcrNotifier'
+import { BulkActionBar } from '@/components/BulkActionBar'
 
 export default function HomePage() {
   const router = useRouter()
   const qc = useQueryClient()
   const { isAuthenticated, restore, username, baseUrl } = useAuthStore()
-  const { currentDirectoryId, setCurrentDirectory, selectedFileId, selectFile } = useEcmStore()
+  const {
+    currentDirectoryId, setCurrentDirectory,
+    selectedFileId, selectFile,
+    selectedIds, toggleSelected, selectRange, clearSelection,
+  } = useEcmStore()
 
   const [wizardOpen, setWizardOpen] = useState(false)
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
@@ -130,6 +135,11 @@ export default function HomePage() {
         if (dir) setRenameTarget(dir)
         return
       }
+      if (e.key === 'Escape' && selectedIds.size > 1) {
+        e.preventDefault()
+        clearSelection()
+        return
+      }
       if (e.shiftKey && (e.key === 'Delete' || e.key === 'Backspace') && currentDirectoryId !== null) {
         e.preventDefault()
         const dir = dirs.data?.find((d) => d.id === currentDirectoryId)
@@ -140,7 +150,7 @@ export default function HomePage() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDirectoryId, selectedFileId, previewId])
+  }, [currentDirectoryId, selectedFileId, previewId, selectedIds])
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -221,14 +231,15 @@ export default function HomePage() {
 
   const selectedFile = sortedFiles.find((f) => f.id === selectedFileId) || null
 
-  async function handleMoveFile(fileId: number, targetDirId: number) {
+  async function handleMoveFile(fileIds: number[], targetDirId: number) {
     try {
-      await ecmApi.moveFile(fileId, targetDirId)
-      toast.success('Arquivo movido')
+      await ecmApi.updateFiles(fileIds, { directory_id: targetDirId })
+      toast.success(fileIds.length > 1 ? `${fileIds.length} arquivos movidos` : 'Arquivo movido')
       qc.invalidateQueries({ queryKey: ['files'] })
       qc.invalidateQueries({ queryKey: ['directories'] })
+      if (fileIds.length > 1) clearSelection()
     } catch (e: any) {
-      toast.error(e?.message || 'Falha ao mover arquivo')
+      toast.error(e?.message || 'Falha ao mover')
     }
   }
 
@@ -452,15 +463,28 @@ export default function HomePage() {
                 {sortedFiles.map((f) => (
                   <button
                     key={f.id}
-                    onClick={() => selectFile(f.id)}
+                    onClick={(e) => {
+                      if (e.shiftKey) {
+                        selectRange(sortedFiles.map((x) => x.id), f.id)
+                      } else if (e.ctrlKey || e.metaKey) {
+                        toggleSelected(f.id)
+                      } else {
+                        selectFile(f.id)
+                      }
+                    }}
                     onDoubleClick={() => setPreviewId(f.id)}
                     draggable
                     onDragStart={(e) => {
-                      e.dataTransfer.setData('application/x-ecm-file', String(f.id))
+                      // se file não está na seleção, seleciona único antes de arrastar
+                      if (!selectedIds.has(f.id)) selectFile(f.id)
+                      const ids = selectedIds.has(f.id) && selectedIds.size > 1
+                        ? Array.from(selectedIds).join(',')
+                        : String(f.id)
+                      e.dataTransfer.setData('application/x-ecm-file', ids)
                       e.dataTransfer.effectAllowed = 'move'
                     }}
                     className={`glass p-3 rounded-xl hover:border-accent transition text-left ${
-                      selectedFileId === f.id ? 'border-accent ring-1 ring-accent/40' : ''
+                      selectedIds.has(f.id) ? 'border-accent ring-1 ring-accent/40' : ''
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-2">
@@ -550,6 +574,12 @@ export default function HomePage() {
         jobs={upload.jobs}
         onClearDone={upload.clearDone}
         onRemove={upload.remove}
+      />
+
+      <BulkActionBar
+        selectedIds={Array.from(selectedIds)}
+        directories={dirs.data ?? []}
+        onClear={clearSelection}
       />
 
       <NewFolderModal

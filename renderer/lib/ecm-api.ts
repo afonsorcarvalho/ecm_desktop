@@ -197,6 +197,16 @@ export const ecmApi = {
     return odoo.callKw<boolean>('dms.file', 'write', [[id], vals])
   },
 
+  async updateFiles(ids: number[], vals: Record<string, unknown>): Promise<boolean> {
+    if (!ids.length) return true
+    return odoo.callKw<boolean>('dms.file', 'write', [ids, vals])
+  },
+
+  async deleteFiles(ids: number[]): Promise<boolean> {
+    if (!ids.length) return true
+    return odoo.callKw<boolean>('dms.file', 'unlink', [ids])
+  },
+
   async reprocessOcr(id: number): Promise<unknown> {
     return odoo.callKw('dms.file', 'action_reprocess_ocr', [[id]])
   },
