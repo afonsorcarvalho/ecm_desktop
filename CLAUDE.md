@@ -79,7 +79,15 @@ npm run dist
    `application/x-ecm-dir`); `UploadDropzone` global só intercepta tipo
    `Files` externo — sem conflito.
 
-7. **VSCode integrated terminal exporta `ELECTRON_RUN_AS_NODE=1`** (pro
+7. **Drag-drop Windows Explorer → Electron WSL (WSLg) NÃO funciona.**
+   Wayland/WSLg não transfere bytes de arquivos do host Windows pro
+   guest Linux. O drop event chega no renderer mas `dataTransfer.files`
+   vem vazio. UploadDropzone mostra toast explicando. Alternativas:
+   (a) botão "Upload" (input file picker), (b) Watch folder (`/settings`),
+   (c) build Windows nativo via `npm run dist` (gera .exe que roda no
+   Windows host onde drag funciona normalmente).
+
+8. **VSCode integrated terminal exporta `ELECTRON_RUN_AS_NODE=1`** (pro
    JS debug bootloader). Isso faz Electron rodar como Node puro, e
    `require("electron")` retorna `undefined`. Sintoma:
    `TypeError: Cannot read properties of undefined (reading 'whenReady')`

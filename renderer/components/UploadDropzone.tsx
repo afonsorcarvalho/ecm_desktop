@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Upload as UploadIcon } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 interface Props {
   onFiles: (files: File[]) => void
@@ -38,7 +39,17 @@ export function UploadDropzone({ onFiles, inline = false }: Props) {
       enterCount.current = 0
       setDragging(false)
       const files = Array.from(e.dataTransfer?.files ?? [])
-      if (files.length) onFiles(files)
+      if (files.length) {
+        onFiles(files)
+      } else {
+        // dataTransfer indicava 'Files' mas chegou vazio — típico do
+        // WSLg/Wayland (drag de Windows Explorer → janela Linux não
+        // transfere binário). Avisa user.
+        toast.error(
+          'Arrastar do Explorer não funciona neste ambiente (WSLg). Use o botão "Upload" ou configure Watch folder.',
+          { duration: 6000 },
+        )
+      }
     }
     window.addEventListener('dragenter', onWindowDragEnter)
     window.addEventListener('dragover', onWindowDragOver)
