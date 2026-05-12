@@ -3,6 +3,7 @@ import path from 'node:path'
 import fs from 'node:fs/promises'
 import { registerWatcherIpc } from './services/watcher'
 import { registerCredentialsIpc } from './services/credentials'
+import { setupUpdater } from './services/updater'
 
 const isDev = process.env.NODE_ENV === 'development'
 const RENDERER_DEV_URL = 'http://localhost:3000'
@@ -107,6 +108,7 @@ app.whenReady().then(() => {
 
   createMainWindow()
   createTray()
+  setupUpdater(() => mainWindow)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow()

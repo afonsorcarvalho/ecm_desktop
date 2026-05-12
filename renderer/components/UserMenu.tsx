@@ -4,13 +4,15 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { useTheme } from 'next-themes'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Settings, LogOut, Moon, Sun, User as UserIcon } from 'lucide-react'
+import { Settings, LogOut, Moon, Sun, User as UserIcon, RefreshCw } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
+import { useUpdater } from '@/hooks/useUpdater'
 
 export function UserMenu() {
   const router = useRouter()
   const { username, baseUrl, logout } = useAuthStore()
   const { theme, setTheme } = useTheme()
+  const { check: checkUpdates } = useUpdater()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => setMounted(true), [])
@@ -61,6 +63,14 @@ export function UserMenu() {
           >
             <Settings size={14} />
             <span>Configurações</span>
+          </DropdownMenu.Item>
+
+          <DropdownMenu.Item
+            onSelect={() => checkUpdates()}
+            className="flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer outline-none data-[highlighted]:bg-bg-muted"
+          >
+            <RefreshCw size={14} />
+            <span>Verificar atualizações</span>
           </DropdownMenu.Item>
 
           <DropdownMenu.Separator className="h-px bg-line my-1" />

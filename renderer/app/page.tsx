@@ -30,6 +30,7 @@ import { SearchBar } from '@/components/SearchBar'
 import { SearchResults } from '@/components/SearchResults'
 import { FilterChips } from '@/components/FilterChips'
 import { useFileSearch, SearchFilters } from '@/hooks/useFileSearch'
+import { useUpdater } from '@/hooks/useUpdater'
 
 export default function HomePage() {
   const router = useRouter()
@@ -65,6 +66,7 @@ export default function HomePage() {
   })
   const upload = useUploadQueue()
   useWatchFolder()
+  useUpdater()
   const search = useFileSearch(searchQuery, filters)
 
   useEffect(() => {

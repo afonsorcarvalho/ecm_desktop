@@ -28,4 +28,8 @@ nsis:
   uninstallerIcon: resources/icon.ico
   uninstallDisplayName: AFR ECM Desktop ${version}
 
-publish: null
+publish:
+  provider: github
+  owner: afonsorcarvalho
+  repo: ecm_desktop
+  releaseType: release

@@ -28,6 +28,14 @@ const api = {
       return () => ipcRenderer.removeListener('watcher:file-detected', listener as any)
     },
   },
+  updater: {
+    check: () => ipcRenderer.invoke('updater:check') as Promise<{ ok: boolean; version?: string | null; error?: string }>,
+    onEvent: (cb: (ev: { type: string; version?: string; percent?: number; message?: string }) => void) => {
+      const listener = (_e: unknown, payload: any) => cb(payload)
+      ipcRenderer.on('updater:event', listener as any)
+      return () => ipcRenderer.removeListener('updater:event', listener as any)
+    },
+  },
   fs: {
     readBase64: (filePath: string) =>
       ipcRenderer.invoke('fs:readBase64', { filePath }) as Promise<string>,
