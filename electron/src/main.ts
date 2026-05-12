@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, dialog, Notification, Tray, Menu, nativeImage } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, dialog, Notification, Tray, Menu, nativeImage, session } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import { registerWatcherIpc } from './services/watcher'
@@ -145,6 +145,57 @@ function createTray() {
 app.whenReady().then(() => {
   registerCredentialsIpc()
   registerWatcherIpc(() => mainWindow)
+
+  // Em prod (file://), todos os XHR pro Odoo são cross-origin e Chromium
+  // dispara preflight OPTIONS que Odoo não responde (Odoo controllers
+  // de /web/* só aceitam GET/POST). Resultado: request fica pending
+  // forever. Removemos o header Origin antes de enviar pra rede —
+  // Chromium trata como same-origin "simple request" e pula preflight.
+  // Mantém webSecurity:false já setado pra não bloquear no renderer.
+  if (!isDev) {
+    // Session cookie capturado do response do Odoo (mapeado por host).
+    // Chromium não persiste cookies pra origin file:// cross-site, mesmo
+    // sem SameSite/Secure. Workaround: capturamos session_id manualmente
+    // e injetamos em requests subsequentes do mesmo host.
+    const cookieStore = new Map<string, string>()  // host → "session_id=…"
+
+    // 1) Captura Set-Cookie de respostas Odoo
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      try {
+        const url = new URL(details.url)
+        const host = url.host
+        const headers = details.responseHeaders || {}
+        const cookieKey = Object.keys(headers).find((k) => k.toLowerCase() === 'set-cookie')
+        if (cookieKey) {
+          const list = headers[cookieKey] as string[]
+          for (const c of list) {
+            const m = c.match(/session_id=([^;]+)/i)
+            if (m) cookieStore.set(host, `session_id=${m[1]}`)
+          }
+        }
+      } catch {}
+      callback({ responseHeaders: details.responseHeaders })
+    })
+
+    // 2) Antes de enviar: remove Origin (skip preflight) + injeta Cookie capturado
+    session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+      const headers = { ...details.requestHeaders }
+      delete headers.Origin
+      delete headers.origin
+      try {
+        const url = new URL(details.url)
+        const stored = cookieStore.get(url.host)
+        if (stored) {
+          const existing = (headers.Cookie || headers.cookie || '').toString()
+          // garante session_id presente (sem duplicar)
+          if (!/session_id=/i.test(existing)) {
+            headers.Cookie = existing ? `${existing}; ${stored}` : stored
+          }
+        }
+      } catch {}
+      callback({ requestHeaders: headers })
+    })
+  }
 
   ipcMain.handle('app:version', () => app.getVersion())
   ipcMain.handle('app:openExternal', async (_e, url: string) => {

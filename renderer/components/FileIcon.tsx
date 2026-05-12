@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { getFileIcon, isImage } from '@/lib/file-icons'
-import { useAuthStore } from '@/store/authStore'
+import { ecmApi } from '@/lib/ecm-api'
 
 interface Props {
   fileId?: number
@@ -56,10 +56,9 @@ function ThumbImage({
 }: {
   fileId: number; size: number; alt: string; className?: string; onError?: () => void
 }) {
-  const baseUrl = useAuthStore((s) => s.baseUrl) || ''
-  // proxy: o /api/odoo/[...path]/route.ts aceita ?__t=<base> pra <img> tag
+  // helper detecta protocol: dev → proxy, prod file:// → URL absoluta pro Odoo
   const ts = useStableTimestamp(fileId)
-  const src = `/api/odoo/web/content?model=dms.file&id=${fileId}&field=content&download=false&__t=${encodeURIComponent(baseUrl)}&_=${ts}`
+  const src = `${ecmApi.fileContentUrl(fileId, { download: false, cacheBust: false })}&_=${ts}`
 
   // dimensão visual (px); object-cover crop pra quadrado
   const style = { width: size, height: size }

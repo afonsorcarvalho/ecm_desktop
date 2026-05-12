@@ -10,7 +10,12 @@ import {
 } from 'lucide-react'
 
 if (typeof window !== 'undefined') {
-  pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
+  // dev/browser HTTP: served pelo Next em /pdf.worker.min.mjs
+  // prod file:// (Electron): caminho relativo ao .html corrente
+  pdfjs.GlobalWorkerOptions.workerSrc =
+    window.location.protocol === 'file:'
+      ? './pdf.worker.min.mjs'
+      : '/pdf.worker.min.mjs'
 }
 
 interface Props {

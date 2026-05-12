@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 
 /**
@@ -39,7 +40,9 @@ export function useNav() {
     else router.push(target)
   }
 
-  return {
+  // Memoiza retorno pra evitar nova ref a cada render (loop em useEffect
+  // que tem `nav` no array de deps).
+  return useMemo(() => ({
     push: (t: string) => go(t, 'push'),
     replace: (t: string) => go(t, 'replace'),
     back: () => {
@@ -47,5 +50,6 @@ export function useNav() {
       if (window.history.length > 1) window.history.back()
       else go('/', 'replace')
     },
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [router])
 }

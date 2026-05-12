@@ -31,7 +31,9 @@ export function useUpdater(): { lastEvent: UpdaterEvent | null; check: () => voi
           toast.success(`Atualização ${ev.version} pronta — reinicie para aplicar.`)
           break
         case 'error':
-          toast.error(`Atualizador: ${ev.message ?? 'erro desconhecido'}`)
+          if (!isBenignUpdaterError(ev.message)) {
+            toast.error(`Atualizador: ${ev.message ?? 'erro desconhecido'}`)
+          }
           break
         // checking, none, progress: silenciosos
       }
@@ -46,10 +48,31 @@ export function useUpdater(): { lastEvent: UpdaterEvent | null; check: () => voi
       return
     }
     ecm.updater.check().then((r: any) => {
-      if (!r.ok) toast.error(`Falha ao checar: ${r.error}`)
-      else if (!r.version) toast.success('Você está na versão mais recente.')
+      if (!r.ok) {
+        if (isBenignUpdaterError(r.error)) {
+          toast.success('Você está na versão mais recente.')
+        } else {
+          toast.error(`Falha ao checar: ${r.error}`)
+        }
+      } else if (!r.version) {
+        toast.success('Você está na versão mais recente.')
+      }
     })
   }
 
   return { lastEvent, check }
+}
+
+/**
+ * Erros esperados quando ainda não há release publicado no GitHub
+ * (build portátil/dev/pré-publicação). Não mostrar toast vermelho ao user.
+ */
+function isBenignUpdaterError(msg?: string): boolean {
+  if (!msg) return false
+  const m = msg.toLowerCase()
+  return (
+    m.includes('no published versions') ||
+    m.includes('not found') ||
+    m.includes('404')
+  )
 }

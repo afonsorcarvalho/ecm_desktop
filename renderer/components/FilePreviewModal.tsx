@@ -42,13 +42,15 @@ export function FilePreviewModal({ fileId, fileName, mimetype, onClose }: Props)
 
     async function load(id: number) {
       try {
-        // Endpoint Odoo padrão: /web/content?model=dms.file&id=N&field=content&download=false
-        // cache-buster + no-store para evitar 304 Not Modified (body vazio) na 2ª abertura
-        const url = `/api/odoo/web/content?model=dms.file&id=${id}&field=content&download=false&_t=${Date.now()}`
+        // dev/browser: proxy /api/odoo evita CORS; prod file:// → URL direta pro Odoo
+        const url = ecmApi.fileContentUrl(id, { download: false, cacheBust: true })
+        const isProxy = url.startsWith('/api/odoo')
         const r = await fetch(url, {
           credentials: 'include',
           cache: 'no-store',
-          headers: { 'X-Odoo-Target': odooTarget(), 'Cache-Control': 'no-cache' },
+          headers: isProxy
+            ? { 'X-Odoo-Target': odooTarget(), 'Cache-Control': 'no-cache' }
+            : { 'Cache-Control': 'no-cache' },
         })
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         const ct = r.headers.get('content-type') || ''

@@ -189,6 +189,19 @@ export const ecmApi = {
     return `${odoo.getBaseUrl()}/web/content?model=dms.file&id=${id}&field=content&download=${download}`
   },
 
+  /** URL pra fetch/img tag carregar binário de dms.file. Em dev/browser HTTP usa
+   *  proxy /api/odoo (Next.js route, evita CORS). Em prod file:// (Electron)
+   *  monta URL absoluta direto pro Odoo (main process injeta Cookie). */
+  fileContentUrl(id: number, opts: { download?: boolean; cacheBust?: boolean } = {}): string {
+    const dl = opts.download ? 'true' : 'false'
+    const ts = opts.cacheBust !== false ? `&_t=${Date.now()}` : ''
+    if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
+      return `${odoo.getBaseUrl()}/web/content?model=dms.file&id=${id}&field=content&download=${dl}${ts}`
+    }
+    // browser/dev HTTP: usa proxy (img tag não envia X-Odoo-Target → ?__t=)
+    return `/api/odoo/web/content?model=dms.file&id=${id}&field=content&download=${dl}&__t=${encodeURIComponent(odoo.getBaseUrl())}${ts}`
+  },
+
   async deleteFile(id: number): Promise<boolean> {
     return odoo.callKw<boolean>('dms.file', 'unlink', [[id]])
   },
