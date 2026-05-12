@@ -79,6 +79,16 @@ npm run dist
    `application/x-ecm-dir`); `UploadDropzone` global só intercepta tipo
    `Files` externo — sem conflito.
 
+7. **VSCode integrated terminal exporta `ELECTRON_RUN_AS_NODE=1`** (pro
+   JS debug bootloader). Isso faz Electron rodar como Node puro, e
+   `require("electron")` retorna `undefined`. Sintoma:
+   `TypeError: Cannot read properties of undefined (reading 'whenReady')`
+   em `main.js`. Fix: script `dev:electron` prefixa
+   `cross-env ELECTRON_RUN_AS_NODE=` pra limpar a var. Se rodar manual,
+   use `unset ELECTRON_RUN_AS_NODE` antes. Confirme com
+   `node_modules/.bin/electron --version` (deve mostrar `v31.x.x`, NÃO
+   `v20.x.x` que é a versão Node embutida).
+
 ## Convenções
 
 - Componentes em `renderer/components/`

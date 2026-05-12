@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "concurrently -k -n NEXT,ELECTRON -c blue,magenta \"npm:dev:renderer\" \"npm:dev:electron\"",
     "dev:renderer": "cd renderer && npm run dev",
-    "dev:electron": "wait-on tcp:3000 && npm run build:electron && cross-env NODE_ENV=development electron dist-electron/main.js",
+    "dev:electron": "wait-on tcp:3000 && npm run build:electron && cross-env NODE_ENV=development ELECTRON_RUN_AS_NODE= electron dist-electron/main.js",
     "build:electron": "tsc -p electron/tsconfig.json",
     "build:renderer": "cd renderer && npm run build:export",
     "build": "npm run build:renderer && npm run build:electron",
