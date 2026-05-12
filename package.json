@@ -14,9 +14,12 @@
     "build:renderer": "cd renderer && npm run build:export",
     "build": "npm run build:renderer && npm run build:electron",
     "dist": "npm run build && electron-builder --win",
-    "lint": "cd renderer && npm run lint"
+    "lint": "cd renderer && npm run lint",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/node": "^20.0.0",
     "concurrently": "^9.0.0",
     "cross-env": "^7.0.3",

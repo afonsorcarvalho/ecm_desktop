@@ -9,7 +9,49 @@ const isDev = process.env.NODE_ENV === 'development'
 const RENDERER_DEV_URL = 'http://localhost:3000'
 
 let mainWindow: BrowserWindow | null = null
+let splashWindow: BrowserWindow | null = null
 let tray: Tray | null = null
+
+const SPLASH_HTML = `<!doctype html>
+<html><head><meta charset="utf-8"><title>AFR ECM</title>
+<style>
+  html,body{margin:0;height:100%;background:linear-gradient(135deg,#1b1230 0%,#0b0d12 100%);
+    color:#fff;font-family:system-ui,Segoe UI,sans-serif;display:grid;place-items:center;
+    -webkit-app-region:drag;user-select:none;overflow:hidden}
+  .box{text-align:center}
+  .logo{width:78px;height:78px;margin:0 auto 18px;border-radius:18px;
+    background:linear-gradient(135deg,#8b5cf6,#6d28d9);display:grid;place-items:center;
+    box-shadow:0 8px 30px rgba(139,92,246,.4);font-weight:700;font-size:42px}
+  h1{margin:0;font-size:18px;letter-spacing:.5px;font-weight:600}
+  p{margin:6px 0 24px;font-size:12px;opacity:.65;letter-spacing:.4px;text-transform:uppercase}
+  .bar{width:180px;height:3px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;margin:0 auto}
+  .bar > span{display:block;width:40%;height:100%;background:#8b5cf6;border-radius:2px;
+    animation:slide 1.1s ease-in-out infinite}
+  @keyframes slide{0%{margin-left:-40%}100%{margin-left:100%}}
+</style></head>
+<body><div class="box">
+  <div class="logo">E</div>
+  <h1>AFR ECM Desktop</h1>
+  <p>Inicializando…</p>
+  <div class="bar"><span></span></div>
+</div></body></html>`
+
+function createSplash() {
+  splashWindow = new BrowserWindow({
+    width: 360,
+    height: 280,
+    frame: false,
+    resizable: false,
+    movable: true,
+    show: true,
+    transparent: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+  })
+  splashWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(SPLASH_HTML))
+  splashWindow.on('closed', () => { splashWindow = null })
+}
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -35,7 +77,10 @@ function createMainWindow() {
     mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'out', 'index.html'))
   }
 
-  mainWindow.once('ready-to-show', () => mainWindow?.show())
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.show()
+    if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close()
+  })
 
   mainWindow.on('closed', () => { mainWindow = null })
 
@@ -106,6 +151,7 @@ app.whenReady().then(() => {
     await fs.unlink(filePath)
   })
 
+  createSplash()
   createMainWindow()
   createTray()
   setupUpdater(() => mainWindow)
