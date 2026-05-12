@@ -26,10 +26,10 @@ export function useNav() {
       const base = idx >= 0
         ? here.slice(0, idx + '/renderer/out/'.length)
         : here.replace(/[^/]+\/?$/, '')
-      // rota '/' → index.html; outras → <route>/index.html
+      // trailingSlash:false → '/' = index.html, outras = <route>.html
       const dest = targetClean === '/'
         ? base + 'index.html'
-        : base + targetClean.slice(1) + '/index.html'
+        : base + targetClean.slice(1) + '.html'
       const fullUrl = window.location.origin + dest
       if (mode === 'replace') window.location.replace(fullUrl)
       else window.location.href = fullUrl

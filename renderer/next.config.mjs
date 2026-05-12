@@ -4,7 +4,9 @@
 const isElectronExport = process.env.ELECTRON_EXPORT === '1'
 
 const nextConfig = {
-  ...(isElectronExport ? { output: 'export', trailingSlash: true, assetPrefix: './' } : {}),
+  // trailingSlash:false → cada rota exporta como <route>.html na raiz de out/,
+  // mantendo `./_next/...` resolvendo pro mesmo diretório (compatível com file://).
+  ...(isElectronExport ? { output: 'export', trailingSlash: false, assetPrefix: './' } : {}),
   images: { unoptimized: true },
 }
 
