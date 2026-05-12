@@ -67,6 +67,12 @@ function createMainWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // Em prod (file://), o renderer faz JSON-RPC direto pro Odoo
+      // (sem proxy Next.js). Desativa same-origin policy do Chromium
+      // pra evitar bloqueio CORS — aceitável em desktop app, requests
+      // só atingem o servidor configurado pelo usuário.
+      webSecurity: isDev,
+      allowRunningInsecureContent: !isDev,
     },
   })
 
