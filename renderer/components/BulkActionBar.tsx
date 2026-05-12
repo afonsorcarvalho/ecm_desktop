@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FolderInput, Trash2, Tag as TagIcon, FileType2, X, Loader2 } from 'lucide-react'
+import { FolderInput, Trash2, Tag as TagIcon, FileType2, X, Loader2, ArchiveRestore } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { ecmApi, EcmDirectory } from '@/lib/ecm-api'
 
@@ -10,11 +10,13 @@ interface Props {
   selectedIds: number[]
   directories: EcmDirectory[]
   onClear: () => void
+  /** quando true, mostra Restaurar + Excluir permanente em vez das ações normais */
+  trash?: boolean
 }
 
 type Modal = null | 'move' | 'type' | 'tag'
 
-export function BulkActionBar({ selectedIds, directories, onClear }: Props) {
+export function BulkActionBar({ selectedIds, directories, onClear, trash }: Props) {
   const qc = useQueryClient()
   const [modal, setModal] = useState<Modal>(null)
   const [busy, setBusy] = useState(false)
@@ -39,8 +41,21 @@ export function BulkActionBar({ selectedIds, directories, onClear }: Props) {
     qc.invalidateQueries({ queryKey: ['directories'] })
   }
 
-  async function bulkDelete() {
+  async function bulkArchive() {
     if (!confirm(`Mover ${count} arquivo(s) para a lixeira?`)) return
+    setBusy(true)
+    try {
+      await ecmApi.archiveFiles(selectedIds)
+      toast.success(`${count} arquivo(s) na lixeira`)
+      invalidateAfter()
+      onClear()
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha em mover pra lixeira')
+    } finally { setBusy(false) }
+  }
+
+  async function bulkPermanentDelete() {
+    if (!confirm(`Excluir DEFINITIVAMENTE ${count} arquivo(s)?\n\nAção irreversível.`)) return
     setBusy(true)
     try {
       await ecmApi.deleteFiles(selectedIds)
@@ -49,6 +64,18 @@ export function BulkActionBar({ selectedIds, directories, onClear }: Props) {
       onClear()
     } catch (e: any) {
       toast.error(e?.message || 'Falha em excluir alguns')
+    } finally { setBusy(false) }
+  }
+
+  async function bulkRestore() {
+    setBusy(true)
+    try {
+      await ecmApi.restoreFiles(selectedIds)
+      toast.success(`${count} arquivo(s) restaurado(s)`)
+      invalidateAfter()
+      onClear()
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha em restaurar')
     } finally { setBusy(false) }
   }
 
@@ -106,18 +133,31 @@ export function BulkActionBar({ selectedIds, directories, onClear }: Props) {
         </button>
         <span className="text-sm font-medium">{count} selecionado(s)</span>
         <span className="text-ink-dim">·</span>
-        <BulkBtn onClick={() => setModal('move')} disabled={busy}>
-          <FolderInput size={14} /> Mover
-        </BulkBtn>
-        <BulkBtn onClick={() => setModal('type')} disabled={busy}>
-          <FileType2 size={14} /> Tipo
-        </BulkBtn>
-        <BulkBtn onClick={() => setModal('tag')} disabled={busy}>
-          <TagIcon size={14} /> Tags
-        </BulkBtn>
-        <BulkBtn onClick={bulkDelete} disabled={busy} danger>
-          <Trash2 size={14} /> Excluir
-        </BulkBtn>
+        {trash ? (
+          <>
+            <BulkBtn onClick={bulkRestore} disabled={busy} success>
+              <ArchiveRestore size={14} /> Restaurar
+            </BulkBtn>
+            <BulkBtn onClick={bulkPermanentDelete} disabled={busy} danger>
+              <Trash2 size={14} /> Excluir permanente
+            </BulkBtn>
+          </>
+        ) : (
+          <>
+            <BulkBtn onClick={() => setModal('move')} disabled={busy}>
+              <FolderInput size={14} /> Mover
+            </BulkBtn>
+            <BulkBtn onClick={() => setModal('type')} disabled={busy}>
+              <FileType2 size={14} /> Tipo
+            </BulkBtn>
+            <BulkBtn onClick={() => setModal('tag')} disabled={busy}>
+              <TagIcon size={14} /> Tags
+            </BulkBtn>
+            <BulkBtn onClick={bulkArchive} disabled={busy} danger>
+              <Trash2 size={14} /> Lixeira
+            </BulkBtn>
+          </>
+        )}
         {busy && <Loader2 size={14} className="animate-spin text-ink-muted" />}
       </div>
 
@@ -180,17 +220,16 @@ export function BulkActionBar({ selectedIds, directories, onClear }: Props) {
 }
 
 function BulkBtn({
-  onClick, disabled, danger, children,
-}: { onClick: () => void; disabled?: boolean; danger?: boolean; children: React.ReactNode }) {
+  onClick, disabled, danger, success, children,
+}: { onClick: () => void; disabled?: boolean; danger?: boolean; success?: boolean; children: React.ReactNode }) {
+  let palette = 'bg-bg-soft hover:bg-bg border border-line hover:border-accent'
+  if (danger) palette = 'bg-red-500/15 text-red-300 hover:bg-red-500/25 border border-red-500/30'
+  if (success) palette = 'bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30'
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition disabled:opacity-50 ${
-        danger
-          ? 'bg-red-500/15 text-red-300 hover:bg-red-500/25 border border-red-500/30'
-          : 'bg-bg-soft hover:bg-bg border border-line hover:border-accent'
-      }`}
+      className={`text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition disabled:opacity-50 ${palette}`}
     >
       {children}
     </button>

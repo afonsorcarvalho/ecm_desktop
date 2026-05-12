@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useEcmStore } from '@/store/ecmStore'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ecmApi } from '@/lib/ecm-api'
-import { Upload, Camera, Building2 } from 'lucide-react'
+import { Upload, Camera, Building2, Trash2, ArchiveRestore } from 'lucide-react'
 import { FileIcon } from '@/components/FileIcon'
 import { FilePropertiesEditor } from '@/components/FilePropertiesEditor'
 import toast from 'react-hot-toast'
@@ -42,7 +42,9 @@ export default function HomePage() {
     currentDirectoryId, setCurrentDirectory,
     selectedFileId, selectFile,
     selectedIds, toggleSelected, selectRange, clearSelection,
+    viewMode, setViewMode,
   } = useEcmStore()
+  const isTrash = viewMode === 'trash'
 
   const [wizardOpen, setWizardOpen] = useState(false)
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
@@ -181,11 +183,14 @@ export default function HomePage() {
   })
 
   const files = useQuery({
-    queryKey: ['files', currentDirectoryId ?? 'all'],
-    queryFn: () => ecmApi.listFiles(currentDirectoryId ?? undefined, 200),
+    queryKey: ['files', viewMode, currentDirectoryId ?? 'all'],
+    queryFn: () => isTrash
+      ? ecmApi.listArchivedFiles(200)
+      : ecmApi.listFiles(currentDirectoryId ?? undefined, 200),
     enabled: isAuthenticated,
-    // polling enquanto há OCR pendente
+    // polling enquanto há OCR pendente (não em lixeira)
     refetchInterval: (q) => {
+      if (isTrash) return false
       const data = (q.state.data || []) as { ocr_state?: string }[]
       const pending = data.some((f) => f.ocr_state === 'pending' || f.ocr_state === 'processing')
       return pending ? 5000 : false
@@ -272,17 +277,44 @@ export default function HomePage() {
 
   async function handleDeleteSelected() {
     if (!selectedFile) return
+    if (isTrash) {
+      const ok = window.confirm(
+        `Excluir DEFINITIVAMENTE "${selectedFile.name}"?\n\nAção irreversível.`,
+      )
+      if (!ok) return
+      try {
+        await ecmApi.deleteFile(selectedFile.id)
+        toast.success('Arquivo excluído permanentemente')
+        selectFile(null)
+        qc.invalidateQueries({ queryKey: ['files'] })
+      } catch (e: any) {
+        toast.error(e?.message || 'Falha ao excluir')
+      }
+      return
+    }
     const ok = window.confirm(
-      `Mover "${selectedFile.name}" para a lixeira?\n\nDocumentos aprovados não podem ser excluídos.`,
+      `Mover "${selectedFile.name}" para a lixeira?\n\nVocê pode restaurar depois em "Lixeira" na barra lateral.`,
     )
     if (!ok) return
     try {
-      await ecmApi.deleteFile(selectedFile.id)
+      await ecmApi.archiveFiles([selectedFile.id])
       toast.success('Arquivo movido para a lixeira')
       selectFile(null)
       qc.invalidateQueries({ queryKey: ['files'] })
     } catch (e: any) {
-      toast.error(e?.message || 'Falha ao excluir')
+      toast.error(e?.message || 'Falha ao mover pra lixeira')
+    }
+  }
+
+  async function handleRestoreSelected() {
+    if (!selectedFile) return
+    try {
+      await ecmApi.restoreFiles([selectedFile.id])
+      toast.success('Arquivo restaurado')
+      selectFile(null)
+      qc.invalidateQueries({ queryKey: ['files'] })
+    } catch (e: any) {
+      toast.error(e?.message || 'Falha ao restaurar')
     }
   }
 
@@ -346,8 +378,8 @@ export default function HomePage() {
         {dirs.data && (
           <FolderTree
             directories={dirs.data}
-            currentId={currentDirectoryId}
-            onSelect={setCurrentDirectory}
+            currentId={isTrash ? null : currentDirectoryId}
+            onSelect={(id) => { setViewMode('normal'); setCurrentDirectory(id) }}
             onNewFolder={(parentId) => openNewFolder(parentId)}
             onRename={(dir) => setRenameTarget(dir)}
             onDelete={(dir) => handleDeleteDirectory(dir)}
@@ -355,6 +387,19 @@ export default function HomePage() {
             onDropDirectory={handleMoveDirectory}
           />
         )}
+
+        <div className="mt-4 pt-3 border-t border-line">
+          <button
+            onClick={() => setViewMode(isTrash ? 'normal' : 'trash')}
+            className={`w-full text-left px-2 py-1.5 rounded-md flex items-center gap-2 text-sm transition ${
+              isTrash ? 'bg-red-500/15 text-red-300' : 'hover:bg-bg-muted text-ink-muted hover:text-red-300'
+            }`}
+            title="Itens excluídos (recuperáveis)"
+          >
+            <Trash2 size={15} />
+            <span>Lixeira</span>
+          </button>
+        </div>
       </aside>
 
       {/* Splitter sidebar */}
@@ -424,7 +469,11 @@ export default function HomePage() {
           ) : (
             <>
               <div className="flex items-center justify-between gap-3 mb-4 min-w-0">
-                {currentDirectoryId ? (
+                {isTrash ? (
+                  <h2 className="text-lg font-medium flex items-center gap-2">
+                    <Trash2 size={18} className="text-red-300" /> Lixeira
+                  </h2>
+                ) : currentDirectoryId ? (
                   <Breadcrumb
                     directories={dirs.data ?? []}
                     currentId={currentDirectoryId}
@@ -546,11 +595,28 @@ export default function HomePage() {
             >
               Abrir / Visualizar
             </button>
-            {selectedFile.can_download !== false && (
-              <ShareButton
-                fileId={selectedFile.id}
-                className="mt-2 w-full text-sm px-3 py-2 rounded-lg bg-bg-muted hover:bg-bg border border-line"
-              />
+            {isTrash ? (
+              <>
+                <button
+                  onClick={handleRestoreSelected}
+                  className="mt-2 w-full text-sm px-3 py-2 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 flex items-center justify-center gap-1.5"
+                >
+                  <ArchiveRestore size={14} /> Restaurar
+                </button>
+                <button
+                  onClick={handleDeleteSelected}
+                  className="mt-2 w-full text-sm px-3 py-2 rounded-lg bg-red-500/15 text-red-300 border border-red-500/30 hover:bg-red-500/25 flex items-center justify-center gap-1.5"
+                >
+                  <Trash2 size={14} /> Excluir permanentemente
+                </button>
+              </>
+            ) : (
+              selectedFile.can_download !== false && (
+                <ShareButton
+                  fileId={selectedFile.id}
+                  className="mt-2 w-full text-sm px-3 py-2 rounded-lg bg-bg-muted hover:bg-bg border border-line"
+                />
+              )
             )}
           </>
         ) : (
@@ -580,6 +646,7 @@ export default function HomePage() {
         selectedIds={Array.from(selectedIds)}
         directories={dirs.data ?? []}
         onClear={clearSelection}
+        trash={isTrash}
       />
 
       <NewFolderModal

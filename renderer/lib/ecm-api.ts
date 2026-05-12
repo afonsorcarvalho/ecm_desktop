@@ -193,6 +193,29 @@ export const ecmApi = {
     return odoo.callKw<boolean>('dms.file', 'unlink', [[id]])
   },
 
+  /** Soft-delete: active=false (vai pra lixeira). */
+  async archiveFiles(ids: number[]): Promise<boolean> {
+    if (!ids.length) return true
+    return odoo.callKw<boolean>('dms.file', 'write', [ids, { active: false }])
+  },
+
+  /** Restaura arquivos da lixeira (active=true). Precisa context
+   *  active_test=false pra encontrar/escrever em archived. */
+  async restoreFiles(ids: number[]): Promise<boolean> {
+    if (!ids.length) return true
+    return odoo.callKw<boolean>('dms.file', 'write', [ids, { active: true }], {
+      context: { active_test: false },
+    })
+  },
+
+  /** Lista arquivos archivados (lixeira). */
+  async listArchivedFiles(limit = 200): Promise<EcmFileSummary[]> {
+    return odoo.callKw<EcmFileSummary[]>('dms.file', 'search_read', [
+      [['active', '=', false]],
+      FILE_FIELDS as unknown as string[],
+    ], { limit, order: 'write_date desc', context: { active_test: false } })
+  },
+
   async updateFile(id: number, vals: Record<string, unknown>): Promise<boolean> {
     return odoo.callKw<boolean>('dms.file', 'write', [[id], vals])
   },

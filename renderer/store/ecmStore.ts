@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 
+export type ViewMode = 'normal' | 'trash'
+
 interface EcmState {
   currentDirectoryId: number | null
   selectedFileId: number | null
@@ -7,6 +9,8 @@ interface EcmState {
   selectedIds: Set<number>
   /** Último file clicado (pivot pra Shift+click range). */
   anchorId: number | null
+  /** Modo de visualização: pastas normais vs. lixeira (archived). */
+  viewMode: ViewMode
 
   setCurrentDirectory(id: number | null): void
   /** Substitui seleção por um único id (ou limpa). */
@@ -18,6 +22,8 @@ interface EcmState {
   selectRange(orderedIds: number[], id: number): void
   /** Limpa toda seleção. */
   clearSelection(): void
+  /** Alterna entre 'normal' (pastas) e 'trash' (archived). */
+  setViewMode(mode: ViewMode): void
 }
 
 export const useEcmStore = create<EcmState>((set, get) => ({
@@ -25,12 +31,14 @@ export const useEcmStore = create<EcmState>((set, get) => ({
   selectedFileId: null,
   selectedIds: new Set<number>(),
   anchorId: null,
+  viewMode: 'normal',
 
   setCurrentDirectory: (id) => set({
     currentDirectoryId: id,
     selectedFileId: null,
     selectedIds: new Set(),
     anchorId: null,
+    viewMode: 'normal',
   }),
 
   selectFile: (id) => set({
@@ -65,4 +73,12 @@ export const useEcmStore = create<EcmState>((set, get) => ({
   },
 
   clearSelection: () => set({ selectedIds: new Set(), selectedFileId: null, anchorId: null }),
+
+  setViewMode: (mode) => set({
+    viewMode: mode,
+    currentDirectoryId: mode === 'trash' ? null : get().currentDirectoryId,
+    selectedFileId: null,
+    selectedIds: new Set(),
+    anchorId: null,
+  }),
 }))
