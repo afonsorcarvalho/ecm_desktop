@@ -57,4 +57,85 @@ mark.ecm-pdf-hl {
   border-radius: 2px;
 }
 
+/* Manual da Pasta — HTML vindo do campo description do dms.directory */
+.ecm-manual-content { color: rgb(var(--ink)); }
+.ecm-manual-content h1,
+.ecm-manual-content h2,
+.ecm-manual-content h3,
+.ecm-manual-content h4 {
+  font-weight: 600;
+  margin-top: 0.75rem;
+  margin-bottom: 0.5rem;
+  color: rgb(var(--ink));
+}
+.ecm-manual-content h3 { font-size: 0.95rem; }
+.ecm-manual-content h4 { font-size: 0.85rem; color: rgb(var(--ink-muted)); }
+.ecm-manual-content > :first-child { margin-top: 0; }
+.ecm-manual-content p {
+  margin: 0.4rem 0;
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+.ecm-manual-content strong { font-weight: 600; color: rgb(var(--ink)); }
+.ecm-manual-content em { font-style: italic; color: rgb(var(--ink-muted)); }
+.ecm-manual-content ul, .ecm-manual-content ol {
+  margin: 0.4rem 0 0.6rem 1.1rem;
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+.ecm-manual-content ul { list-style: disc; }
+.ecm-manual-content ol { list-style: decimal; }
+.ecm-manual-content li { margin: 0.15rem 0; }
+.ecm-manual-content code {
+  background: rgb(var(--bg-muted));
+  color: rgb(var(--accent));
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-family: theme('fontFamily.mono');
+  word-break: break-word;
+}
+.ecm-manual-content pre {
+  background: rgb(var(--bg-muted));
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 0.78rem;
+  margin: 0.5rem 0;
+}
+.ecm-manual-content blockquote {
+  border-left: 3px solid rgba(var(--accent), 0.5);
+  padding-left: 0.7rem;
+  color: rgb(var(--ink-muted));
+  margin: 0.5rem 0;
+  font-style: italic;
+}
+.ecm-manual-content a {
+  color: rgb(var(--accent));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.ecm-manual-content a:hover { text-decoration: none; }
+.ecm-manual-content hr {
+  border: 0;
+  border-top: 1px solid var(--line-color);
+  margin: 0.7rem 0;
+}
+.ecm-manual-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  font-size: 0.8rem;
+}
+.ecm-manual-content th,
+.ecm-manual-content td {
+  border: 1px solid var(--line-color);
+  padding: 0.3rem 0.5rem;
+  text-align: left;
+}
+.ecm-manual-content th {
+  background: rgb(var(--bg-muted));
+  font-weight: 600;
+}
+
 

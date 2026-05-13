@@ -18,6 +18,7 @@ export interface EcmDirectory {
   parent_id: [number, string] | false
   is_root_directory: boolean
   count_files: number
+  description?: string | false
 }
 
 export interface EcmFileSummary {
@@ -70,7 +71,7 @@ export const ecmApi = {
   async listDirectories(): Promise<EcmDirectory[]> {
     return odoo.callKw<EcmDirectory[]>('dms.directory', 'search_read', [
       [],
-      ['id', 'name', 'parent_id', 'is_root_directory', 'count_files'],
+      ['id', 'name', 'parent_id', 'is_root_directory', 'count_files', 'description'],
     ], { order: 'name' })
   },
 

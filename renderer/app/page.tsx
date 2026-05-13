@@ -9,6 +9,7 @@ import { ecmApi } from '@/lib/ecm-api'
 import { Upload, Camera, Building2, Trash2, ArchiveRestore } from 'lucide-react'
 import { FileIcon } from '@/components/FileIcon'
 import { FilePropertiesEditor } from '@/components/FilePropertiesEditor'
+import { DirectoryManualPanel } from '@/components/DirectoryManualPanel'
 import toast from 'react-hot-toast'
 import { FolderTree } from '@/components/FolderTree'
 import { NewFolderModal } from '@/components/NewFolderModal'
@@ -235,6 +236,9 @@ export default function HomePage() {
   }
 
   const selectedFile = sortedFiles.find((f) => f.id === selectedFileId) || null
+  const currentDirectory = currentDirectoryId
+    ? dirs.data?.find((d) => d.id === currentDirectoryId) ?? null
+    : null
 
   async function handleMoveFile(fileIds: number[], targetDirId: number) {
     try {
@@ -619,9 +623,11 @@ export default function HomePage() {
               )
             )}
           </>
+        ) : currentDirectory && !isTrash ? (
+          <DirectoryManualPanel directory={currentDirectory} />
         ) : (
           <div className="text-center text-ink-dim text-sm mt-12">
-            <p>Selecione um arquivo</p>
+            <p>Selecione uma pasta ou arquivo</p>
             <p className="text-xs mt-1">para ver detalhes e ações</p>
           </div>
         )}
