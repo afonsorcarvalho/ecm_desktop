@@ -8,6 +8,7 @@ import {
   ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize2,
   Minimize2, Search, X,
 } from 'lucide-react'
+import { extractOutline, extractHeuristic, type TocResult } from '@/lib/pdf-toc'
 
 if (typeof window !== 'undefined') {
   // dev/browser HTTP: served pelo Next em /pdf.worker.min.mjs
@@ -24,6 +25,8 @@ interface Props {
   onPagesLoaded: (n: number) => void
   onPageChange: (n: number) => void
   totalPages: number
+  onTocLoadStart?: () => void
+  onTocLoaded?: (toc: TocResult) => void
 }
 
 type FitMode = 'width' | 'height' | 'page' | 'custom'
@@ -32,7 +35,7 @@ const ZOOM_STEP = 0.15
 const ZOOM_MIN = 0.4
 const ZOOM_MAX = 4
 
-export default function PdfRenderer({ url, pageNum, onPagesLoaded, onPageChange, totalPages }: Props) {
+export default function PdfRenderer({ url, pageNum, onPagesLoaded, onPageChange, totalPages, onTocLoadStart, onTocLoaded }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [scale, setScale] = useState(1)
   const [fitMode, setFitMode] = useState<FitMode>('width')
@@ -176,7 +179,22 @@ export default function PdfRenderer({ url, pageNum, onPagesLoaded, onPageChange,
       <div className="flex-1 overflow-auto grid place-items-start justify-center py-6">
         <Document
           file={url}
-          onLoadSuccess={(p) => onPagesLoaded(p.numPages)}
+          onLoadSuccess={async (p) => {
+            onPagesLoaded(p.numPages)
+            if (!onTocLoaded) return
+            onTocLoadStart?.()
+            try {
+              const outline = await extractOutline(p as any)
+              if (outline) {
+                onTocLoaded(outline)
+              } else {
+                const heur = await extractHeuristic(p as any)
+                onTocLoaded(heur)
+              }
+            } catch {
+              onTocLoaded({ source: 'heuristic', entries: [], flat: [] })
+            }
+          }}
           loading={<div className="text-ink-muted">Carregando PDF…</div>}
         >
           <Page

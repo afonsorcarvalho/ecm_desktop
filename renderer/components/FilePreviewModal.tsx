@@ -6,6 +6,8 @@ import { X, Download, Loader2 } from 'lucide-react'
 import { FileIcon } from './FileIcon'
 import { ecmApi } from '@/lib/ecm-api'
 import { ShareButton } from './ShareButton'
+import { PdfTocPanel } from './PdfTocPanel'
+import type { TocResult } from '@/lib/pdf-toc'
 
 const PdfRenderer = dynamic(() => import('./PdfRenderer'), { ssr: false })
 
@@ -24,6 +26,9 @@ export function FilePreviewModal({ fileId, fileName, mimetype, onClose }: Props)
   const [pageNum, setPageNum] = useState(1)
   const [ocrText, setOcrText] = useState<string | null>(null)
   const [canDownload, setCanDownload] = useState<boolean>(true)
+  const [toc, setToc] = useState<TocResult | null>(null)
+  const [tocLoading, setTocLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState<'ocr' | 'toc'>('ocr')
 
   const isPdf = useMemo(
     () => (mimetype || '').toLowerCase().includes('pdf') || (fileName || '').toLowerCase().endsWith('.pdf'),
@@ -38,6 +43,7 @@ export function FilePreviewModal({ fileId, fileName, mimetype, onClose }: Props)
     let cancelled = false
     let createdBlob: string | null = null
     setBlobUrl(null); setError(null); setLoading(true); setPages(0); setPageNum(1); setOcrText(null); setCanDownload(true)
+    setToc(null); setTocLoading(false); setActiveTab('ocr')
     if (!fileId) return
 
     async function load(id: number) {
@@ -88,6 +94,10 @@ export function FilePreviewModal({ fileId, fileName, mimetype, onClose }: Props)
       if (e.key === 'Escape') onClose()
       if (isPdf && e.key === 'ArrowLeft') setPageNum((p) => Math.max(1, p - 1))
       if (isPdf && e.key === 'ArrowRight') setPageNum((p) => Math.min(pages || 1, p + 1))
+      if (isPdf && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault()
+        setActiveTab((t) => (t === 'toc' ? 'ocr' : 'toc'))
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -147,6 +157,15 @@ export function FilePreviewModal({ fileId, fileName, mimetype, onClose }: Props)
               totalPages={pages}
               onPageChange={setPageNum}
               onPagesLoaded={setPages}
+              onTocLoadStart={() => setTocLoading(true)}
+              onTocLoaded={(t) => {
+                setToc(t)
+                setTocLoading(false)
+                const multiPage = t.flat.some((e) => e.page > 1)
+                if (t.source === 'outline' && t.entries.length > 0 && multiPage) {
+                  setActiveTab('toc')
+                }
+              }}
             />
           )}
           {!loading && !error && blobUrl && isImage && (
@@ -161,20 +180,57 @@ export function FilePreviewModal({ fileId, fileName, mimetype, onClose }: Props)
           )}
         </div>
 
-        <aside className="border-l border-line bg-bg-soft overflow-y-auto">
-          <div className="px-4 py-3 border-b border-line text-xs uppercase tracking-wide text-ink-muted">
-            Texto extraído (OCR)
-          </div>
-          {ocrText ? (
-            <pre className="p-4 text-xs whitespace-pre-wrap text-ink-muted leading-relaxed">{ocrText}</pre>
+        <aside className="border-l border-line bg-bg-soft flex flex-col overflow-hidden">
+          {isPdf ? (
+            <>
+              <div className="flex border-b border-line shrink-0">
+                {(['ocr', 'toc'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`flex-1 px-3 py-2 text-xs uppercase tracking-wide transition-colors
+                      ${activeTab === tab
+                        ? 'text-accent border-b-2 border-accent bg-bg'
+                        : 'text-ink-muted hover:bg-bg-muted border-b-2 border-transparent'}`}
+                    title={tab === 'toc' ? 'Sumário (Ctrl+B)' : 'Texto OCR'}
+                  >
+                    {tab === 'ocr' ? 'OCR' : 'Sumário'}
+                  </button>
+                ))}
+              </div>
+              {activeTab === 'ocr' && <OcrPane ocrText={ocrText} />}
+              {activeTab === 'toc' && (
+                <PdfTocPanel
+                  toc={toc}
+                  loading={tocLoading}
+                  pageNum={pageNum}
+                  onPageChange={setPageNum}
+                />
+              )}
+            </>
           ) : (
-            <p className="p-4 text-xs text-ink-dim">
-              Nenhum texto OCR disponível para este arquivo.
-            </p>
+            <>
+              <div className="px-4 py-3 border-b border-line text-xs uppercase tracking-wide text-ink-muted">
+                Texto extraído (OCR)
+              </div>
+              <OcrPane ocrText={ocrText} />
+            </>
           )}
         </aside>
       </div>
     </div>
+  )
+}
+
+function OcrPane({ ocrText }: { ocrText: string | null }) {
+  return ocrText ? (
+    <pre className="flex-1 p-4 text-xs whitespace-pre-wrap text-ink-muted leading-relaxed overflow-y-auto">
+      {ocrText}
+    </pre>
+  ) : (
+    <p className="p-4 text-xs text-ink-dim">
+      Nenhum texto OCR disponível para este arquivo.
+    </p>
   )
 }
 
