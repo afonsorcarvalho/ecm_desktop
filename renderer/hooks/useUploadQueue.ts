@@ -12,6 +12,7 @@ export interface UploadJob {
   directoryId: number
   documentTypeId?: number
   tagIds?: number[]
+  ocrEnabled?: boolean
   status: UploadStatus
   progress: number
   serverId?: number
@@ -66,6 +67,7 @@ export function useUploadQueue() {
         contentBase64,
         documentTypeId: job.documentTypeId,
         tagIds: job.tagIds,
+        ocrEnabled: job.ocrEnabled,
       })
       updateJob(job.id, { status: 'done', progress: 100, serverId })
       notifyOS('Upload concluído', job.name)
@@ -94,15 +96,16 @@ export function useUploadQueue() {
   const enqueue = useCallback((args: {
     directoryId: number
     tagIds?: number[]
-    items: { file: File; documentTypeId?: number; tagIds?: number[] }[]
+    items: { file: File; documentTypeId?: number; tagIds?: number[]; ocrEnabled?: boolean }[]
   }) => {
-    const newJobs: UploadJob[] = args.items.map(({ file, documentTypeId, tagIds }) => ({
+    const newJobs: UploadJob[] = args.items.map(({ file, documentTypeId, tagIds, ocrEnabled }) => ({
       id: uid(),
       file,
       name: file.name,
       directoryId: args.directoryId,
       documentTypeId,
       tagIds: tagIds && tagIds.length ? tagIds : args.tagIds,
+      ocrEnabled,
       status: 'queued',
       progress: 0,
     }))

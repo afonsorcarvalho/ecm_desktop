@@ -3,13 +3,37 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ecmApi, EcmDirectory } from '@/lib/ecm-api'
-import { X, Tag as TagIcon } from 'lucide-react'
+import { X, Tag as TagIcon, ScanText } from 'lucide-react'
 import { FileIcon } from '@/components/FileIcon'
+
+const OCR_SUPPORTED_MIMES = new Set([
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/tiff',
+  'image/bmp',
+  'image/gif',
+  // Office (extração de texto via python-docx / openpyxl)
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+])
+const OCR_SUPPORTED_EXTS = [
+  '.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.tif', '.bmp', '.gif',
+  '.docx', '.xlsx',
+]
+
+function isOcrSupported(file: File): boolean {
+  if (file.type && OCR_SUPPORTED_MIMES.has(file.type.toLowerCase())) return true
+  const lower = file.name.toLowerCase()
+  return OCR_SUPPORTED_EXTS.some((ext) => lower.endsWith(ext))
+}
 
 interface PendingFile {
   id: string
   file: File
   documentTypeId?: number
+  ocrEnabled: boolean
 }
 
 interface Props {
@@ -20,7 +44,7 @@ interface Props {
   onConfirm: (args: {
     directoryId: number
     tagIds: number[]
-    items: { file: File; documentTypeId?: number }[]
+    items: { file: File; documentTypeId?: number; ocrEnabled?: boolean }[]
   }) => void
   onCancel: () => void
 }
@@ -36,7 +60,11 @@ export function ClassifyWizard({ open, files, directories, defaultDirectoryId, o
 
   useEffect(() => {
     if (!open) return
-    setItems(files.map((f, i) => ({ id: `${Date.now()}_${i}`, file: f })))
+    setItems(files.map((f, i) => ({
+      id: `${Date.now()}_${i}`,
+      file: f,
+      ocrEnabled: isOcrSupported(f),
+    })))
     setTagIds([])
   }, [open, files])
 
@@ -62,16 +90,34 @@ export function ClassifyWizard({ open, files, directories, defaultDirectoryId, o
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, documentTypeId: typeId } : it)))
   }
 
+  function setOcr(id: string, enabled: boolean) {
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ocrEnabled: enabled } : it)))
+  }
+
   function applyToAll(typeId?: number) {
     setItems((prev) => prev.map((it) => ({ ...it, documentTypeId: typeId })))
   }
+
+  function applyOcrToAll(enabled: boolean) {
+    setItems((prev) => prev.map((it) => ({
+      ...it,
+      ocrEnabled: enabled && isOcrSupported(it.file),
+    })))
+  }
+
+  const ocrSupportedCount = items.filter((it) => isOcrSupported(it.file)).length
+  const ocrAllOn = ocrSupportedCount > 0 && items.every((it) => !isOcrSupported(it.file) || it.ocrEnabled)
 
   function confirm() {
     if (!directoryId) return
     onConfirm({
       directoryId,
       tagIds,
-      items: items.map((it) => ({ file: it.file, documentTypeId: it.documentTypeId })),
+      items: items.map((it) => ({
+        file: it.file,
+        documentTypeId: it.documentTypeId,
+        ocrEnabled: isOcrSupported(it.file) ? it.ocrEnabled : undefined,
+      })),
     })
   }
 
@@ -137,31 +183,66 @@ export function ClassifyWizard({ open, files, directories, defaultDirectoryId, o
           </div>
         </div>
 
-        <div className="p-5 overflow-y-auto flex-1 space-y-2">
-          {items.map((it) => (
-            <div key={it.id} className="flex items-center gap-3 p-3 rounded-lg bg-bg-soft border border-line">
-              <FileIcon
-                name={it.file.name}
-                mimetype={it.file.type}
-                size={20}
-                thumbnail={false}
-              />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm truncate">{it.file.name}</p>
-                <p className="text-xs text-ink-dim">{formatBytes(it.file.size)}</p>
-              </div>
-              <select
-                value={it.documentTypeId ?? ''}
-                onChange={(e) => setType(it.id, e.target.value ? Number(e.target.value) : undefined)}
-                className="bg-bg border border-line rounded px-2 py-1.5 text-sm outline-none"
-              >
-                <option value="">— Tipo —</option>
-                {types.data?.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
+        {ocrSupportedCount > 0 && (
+          <div className="px-5 py-3 border-b border-line flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2 text-ink-muted">
+              <ScanText size={14} />
+              <span>OCR habilitado em {items.filter((it) => it.ocrEnabled).length}/{ocrSupportedCount} arquivo(s) suportado(s)</span>
             </div>
-          ))}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={ocrAllOn}
+                onChange={(e) => applyOcrToAll(e.target.checked)}
+                className="accent-accent"
+              />
+              <span>OCR em todos</span>
+            </label>
+          </div>
+        )}
+
+        <div className="p-5 overflow-y-auto flex-1 space-y-2">
+          {items.map((it) => {
+            const ocrSupported = isOcrSupported(it.file)
+            return (
+              <div key={it.id} className="flex items-center gap-3 p-3 rounded-lg bg-bg-soft border border-line">
+                <FileIcon
+                  name={it.file.name}
+                  mimetype={it.file.type}
+                  size={20}
+                  thumbnail={false}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm truncate">{it.file.name}</p>
+                  <p className="text-xs text-ink-dim">{formatBytes(it.file.size)}</p>
+                </div>
+                <label
+                  className={`flex items-center gap-1.5 text-xs ${ocrSupported ? 'text-ink-muted cursor-pointer' : 'text-ink-dim cursor-not-allowed opacity-50'}`}
+                  title={ocrSupported ? 'Extrair texto via OCR (PDF/imagem)' : 'OCR não suportado pra este formato'}
+                >
+                  <input
+                    type="checkbox"
+                    checked={ocrSupported && it.ocrEnabled}
+                    disabled={!ocrSupported}
+                    onChange={(e) => setOcr(it.id, e.target.checked)}
+                    className="accent-accent"
+                  />
+                  <ScanText size={12} />
+                  <span>OCR</span>
+                </label>
+                <select
+                  value={it.documentTypeId ?? ''}
+                  onChange={(e) => setType(it.id, e.target.value ? Number(e.target.value) : undefined)}
+                  className="bg-bg border border-line rounded px-2 py-1.5 text-sm outline-none"
+                >
+                  <option value="">— Tipo —</option>
+                  {types.data?.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+            )
+          })}
         </div>
 
         <footer className="p-5 border-t border-line flex justify-end gap-2">

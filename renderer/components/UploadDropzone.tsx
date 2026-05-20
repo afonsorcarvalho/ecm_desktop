@@ -82,7 +82,7 @@ export function UploadDropzone({ onFiles, inline = false }: Props) {
       >
         <UploadIcon size={32} className="text-accent" />
         <p className="text-sm">Clique para selecionar arquivos</p>
-        <p className="text-xs text-ink-dim">ou arraste para qualquer lugar da janela</p>
+        <p className="text-xs text-ink-dim">vários ao mesmo tempo (Ctrl/Shift) — ou arraste para qualquer lugar da janela</p>
       </button>
     )
   }

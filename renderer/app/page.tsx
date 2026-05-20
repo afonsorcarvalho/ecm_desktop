@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNav } from '@/lib/nav'
 import { useAuthStore } from '@/store/authStore'
 import { useEcmStore } from '@/store/ecmStore'
@@ -14,6 +14,7 @@ import toast from 'react-hot-toast'
 import { FolderTree } from '@/components/FolderTree'
 import { NewFolderModal } from '@/components/NewFolderModal'
 import { RenameFolderModal } from '@/components/RenameFolderModal'
+import { RenameFileModal } from '@/components/RenameFileModal'
 import { Breadcrumb } from '@/components/Breadcrumb'
 import type { EcmDirectory } from '@/lib/ecm-api'
 import { SortDropdown, SortState, sortFiles } from '@/components/SortDropdown'
@@ -25,6 +26,8 @@ import { FolderPlus } from 'lucide-react'
 import { useUploadQueue } from '@/hooks/useUploadQueue'
 import { useWatchFolder } from '@/hooks/useWatchFolder'
 import { FilePreviewModal } from '@/components/FilePreviewModal'
+import { AiSuggestionBadge } from '@/components/AiSuggestionBadge'
+import { AiSuggestionSummary } from '@/components/AiSuggestionSummary'
 import { ShareButton } from '@/components/ShareButton'
 import { UserMenu } from '@/components/UserMenu'
 import { SearchBar } from '@/components/SearchBar'
@@ -50,12 +53,14 @@ export default function HomePage() {
   const [wizardOpen, setWizardOpen] = useState(false)
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [previewId, setPreviewId] = useState<number | null>(null)
+  const [previewInitialTab, setPreviewInitialTab] = useState<'ocr' | 'toc' | 'ai' | undefined>(undefined)
   const [searchQuery, setSearchQuery] = useState('')
   const [filters, setFilters] = useState<SearchFilters>({})
   const [logoAspect, setLogoAspect] = useState<number | null>(null)
   const [newFolderOpen, setNewFolderOpen] = useState(false)
   const [newFolderParent, setNewFolderParent] = useState<number | null>(null)
   const [renameTarget, setRenameTarget] = useState<EcmDirectory | null>(null)
+  const [renameFileTarget, setRenameFileTarget] = useState<{ id: number; name: string } | null>(null)
   const [sort, setSort] = useState<SortState>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -132,10 +137,16 @@ export default function HomePage() {
         handleDeleteSelected()
         return
       }
-      if (e.key === 'F2' && currentDirectoryId !== null) {
+      if (e.key === 'F2') {
         e.preventDefault()
-        const dir = dirs.data?.find((d) => d.id === currentDirectoryId)
-        if (dir) setRenameTarget(dir)
+        // prioridade: arquivo selecionado > pasta atual
+        if (selectedFileId !== null) {
+          const f = sortedFiles.find((x) => x.id === selectedFileId)
+          if (f) setRenameFileTarget({ id: f.id, name: f.name })
+        } else if (currentDirectoryId !== null) {
+          const dir = dirs.data?.find((d) => d.id === currentDirectoryId)
+          if (dir) setRenameTarget(dir)
+        }
         return
       }
       if (e.key === 'Escape' && selectedIds.size > 1) {
@@ -189,11 +200,14 @@ export default function HomePage() {
       ? ecmApi.listArchivedFiles(200)
       : ecmApi.listFiles(currentDirectoryId ?? undefined, 200),
     enabled: isAuthenticated,
-    // polling enquanto há OCR pendente (não em lixeira)
+    // polling enquanto há OCR ou IA pendente (não em lixeira)
     refetchInterval: (q) => {
       if (isTrash) return false
-      const data = (q.state.data || []) as { ocr_state?: string }[]
-      const pending = data.some((f) => f.ocr_state === 'pending' || f.ocr_state === 'processing')
+      const data = (q.state.data || []) as { ocr_state?: string; ai_state?: string }[]
+      const pending = data.some((f) =>
+        f.ocr_state === 'pending' || f.ocr_state === 'processing' ||
+        f.ai_state === 'pending' || f.ai_state === 'processing',
+      )
       return pending ? 5000 : false
     },
   })
@@ -202,12 +216,24 @@ export default function HomePage() {
   useOcrNotifier(files.data)
 
   // quando upload termina, refetch lista
+  const prevActiveRef = useRef(0)
   useEffect(() => {
+    const active = upload.jobs.filter((j) => j.status === 'queued' || j.status === 'uploading').length
     const done = upload.jobs.filter((j) => j.status === 'done').length
+    const failed = upload.jobs.filter((j) => j.status === 'failed').length
     if (done > 0) {
       qc.invalidateQueries({ queryKey: ['files'] })
       qc.invalidateQueries({ queryKey: ['directories'] })
     }
+    // transição ativo>0 → 0 e havia mais de 1 arquivo no batch = toast resumo
+    if (prevActiveRef.current > 0 && active === 0 && (done + failed) > 1) {
+      const parts = [`${done} enviado${done === 1 ? '' : 's'}`]
+      if (failed > 0) parts.push(`${failed} falha${failed === 1 ? '' : 's'}`)
+      const msg = `Upload em lote: ${parts.join(' • ')}`
+      if (failed > 0) toast.error(msg)
+      else toast.success(msg)
+    }
+    prevActiveRef.current = active
   }, [upload.jobs, qc])
 
   function handleFilesDropped(droppedFiles: File[]) {
@@ -218,7 +244,7 @@ export default function HomePage() {
   function confirmUpload({ directoryId, tagIds, items }: {
     directoryId: number
     tagIds: number[]
-    items: { file: File; documentTypeId?: number }[]
+    items: { file: File; documentTypeId?: number; ocrEnabled?: boolean }[]
   }) {
     upload.enqueue({ directoryId, tagIds, items })
     setWizardOpen(false)
@@ -440,6 +466,7 @@ export default function HomePage() {
                 }
                 input.click()
               }}
+              title="Upload — segure Ctrl/Shift no picker pra selecionar vários arquivos"
               className="px-3 py-2 rounded-lg bg-accent hover:bg-accent-soft text-sm flex items-center gap-1.5"
             >
               <Upload size={16} /> Upload
@@ -536,10 +563,17 @@ export default function HomePage() {
                       e.dataTransfer.setData('application/x-ecm-file', ids)
                       e.dataTransfer.effectAllowed = 'move'
                     }}
-                    className={`glass p-3 rounded-xl hover:border-accent transition text-left ${
-                      selectedIds.has(f.id) ? 'border-accent ring-1 ring-accent/40' : ''
+                    className={`glass p-3 rounded-xl hover:border-accent transition text-left relative ${
+                      selectedIds.has(f.id)
+                        ? 'border-accent ring-2 ring-accent shadow-lg shadow-accent/30 bg-accent/10 -translate-y-0.5 scale-[1.02]'
+                        : ''
                     }`}
                   >
+                    {selectedIds.has(f.id) && (
+                      <span className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-accent text-white flex items-center justify-center text-[11px] shadow-md ring-2 ring-bg z-10">
+                        ✓
+                      </span>
+                    )}
                     <div className="flex items-center gap-2 mb-2">
                       <FileIcon
                         fileId={f.id}
@@ -547,11 +581,15 @@ export default function HomePage() {
                         mimetype={f.mimetype}
                         size={32}
                       />
-                      <p className="text-sm truncate font-medium">{f.name}</p>
+                      <p className={`text-sm truncate ${selectedIds.has(f.id) ? 'font-semibold text-accent' : 'font-medium'}`}>{f.name}</p>
                     </div>
                     <div className="text-xs text-ink-dim flex flex-wrap gap-2 items-center">
                       {f.document_type_id && <span>{f.document_type_id[1]}</span>}
                       {f.ocr_state && <OcrBadge state={f.ocr_state} />}
+                      <AiSuggestionBadge
+                        file={{ ai_state: f.ai_state, current_suggestion_id: f.current_suggestion_id }}
+                        onClick={() => { setPreviewId(f.id); setPreviewInitialTab('ai') }}
+                      />
                       {f.tag_ids && f.tag_ids.length > 0 && (
                         <span className="px-1.5 py-0.5 rounded bg-bg-muted">
                           {f.tag_ids.length} tag{f.tag_ids.length > 1 ? 's' : ''}
@@ -588,6 +626,27 @@ export default function HomePage() {
                   ))}
               </div>
             )}
+            {selectedFile.keywords && (
+              <div className="mt-3">
+                <div className="text-[10px] uppercase tracking-wide text-ink-dim mb-1">
+                  Palavras-chave
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {selectedFile.keywords
+                    .split(',')
+                    .map((k) => k.trim())
+                    .filter(Boolean)
+                    .map((kw, i) => (
+                      <span
+                        key={i}
+                        className="text-[11px] px-2 py-0.5 rounded-full bg-bg-muted text-ink-muted border border-line"
+                      >
+                        {kw}
+                      </span>
+                    ))}
+                </div>
+              </div>
+            )}
             {selectedFile.can_download === false && (
               <div className="mt-3 text-xs px-2 py-1.5 rounded border border-amber-500/40 bg-amber-500/10 text-amber-300">
                 Download restrito para este tipo de documento.
@@ -621,6 +680,18 @@ export default function HomePage() {
                   className="mt-2 w-full text-sm px-3 py-2 rounded-lg bg-bg-muted hover:bg-bg border border-line"
                 />
               )
+            )}
+            {!isTrash && (
+              <AiSuggestionSummary
+                fileId={selectedFile.id}
+                fileName={selectedFile.name}
+                aiState={selectedFile.ai_state}
+                onOpenDetails={() => { setPreviewId(selectedFile.id); setPreviewInitialTab('ai') }}
+                onChanged={() => {
+                  qc.invalidateQueries({ queryKey: ['files'] })
+                  qc.invalidateQueries({ queryKey: ['directories'] })
+                }}
+              />
             )}
           </>
         ) : currentDirectory && !isTrash ? (
@@ -670,6 +741,13 @@ export default function HomePage() {
         currentName={renameTarget?.name ?? ''}
       />
 
+      <RenameFileModal
+        open={renameFileTarget !== null}
+        onClose={() => setRenameFileTarget(null)}
+        fileId={renameFileTarget?.id ?? null}
+        currentName={renameFileTarget?.name ?? ''}
+      />
+
       <FilePreviewModal
         fileId={previewId}
         fileName={
@@ -680,7 +758,8 @@ export default function HomePage() {
           files.data?.find((f) => f.id === previewId)?.mimetype ??
           search.results.find((f) => f.id === previewId)?.mimetype
         }
-        onClose={() => setPreviewId(null)}
+        initialTab={previewInitialTab}
+        onClose={() => { setPreviewId(null); setPreviewInitialTab(undefined) }}
       />
     </div>
   )

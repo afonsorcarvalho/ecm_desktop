@@ -41,6 +41,60 @@ export interface EcmFileSummary {
   permission_write?: boolean
   permission_unlink?: boolean
   ocr_enabled?: boolean
+  ai_state?: 'none' | 'pending' | 'processing' | 'done' | 'failed' | 'skipped'
+  current_suggestion_id?: [number, string] | false
+  keywords?: string | false
+}
+
+export type EcmAiSuggestionState =
+  | 'pending'
+  | 'accepted'
+  | 'rejected'
+  | 'ignored'
+  | 'failed'
+
+export interface EcmAiSuggestionAlt {
+  id: number
+  suggestion_id: [number, string]
+  directory_id: [number, string]
+  score: number
+  rationale?: string
+}
+
+export interface EcmAiSuggestion {
+  id: number
+  document_id: [number, string]
+  state: EcmAiSuggestionState
+  model_used?: string
+  confidence?: number
+  reasoning?: string
+  suggested_directory_id?: [number, string] | false
+  suggested_doc_type_id?: [number, string] | false
+  suggested_tag_ids?: number[]
+  propose_new_directory?: boolean
+  new_directory_name?: string | false
+  new_directory_parent_id?: [number, string] | false
+  new_directory_manual?: string | false
+  keywords?: string | false
+  tokens_in?: number
+  tokens_out?: number
+  latency_ms?: number
+  create_date?: string
+  applied_at?: string | false
+  applied_by_user_id?: [number, string] | false
+  previous_directory_id?: [number, string] | false
+  failure_reason?: string | false
+  alt_directory_ids?: EcmAiSuggestionAlt[]
+}
+
+export interface AiSuggestionOverrides {
+  directory_id?: number
+  document_type_id?: number
+  tag_ids?: number[]
+  create_new_directory?: boolean
+  new_directory_name?: string
+  new_directory_parent_id?: number
+  new_directory_manual?: string
 }
 
 export interface EcmDocumentType {
@@ -64,6 +118,7 @@ const FILE_FIELDS: (keyof EcmFileSummary)[] = [
   'document_type_id', 'confidentiality', 'expiration_date', 'expiration_status',
   'ocr_state', 'approval_state', 'can_download', 'tag_ids',
   'permission_write', 'permission_unlink', 'ocr_enabled',
+  'ai_state', 'current_suggestion_id', 'keywords',
 ]
 
 export const ecmApi = {
@@ -165,6 +220,7 @@ export const ecmApi = {
     contentBase64: string
     documentTypeId?: number
     tagIds?: number[]
+    ocrEnabled?: boolean
   }): Promise<number> {
     const vals: Record<string, unknown> = {
       name: args.name,
@@ -175,6 +231,7 @@ export const ecmApi = {
     if (args.tagIds && args.tagIds.length) {
       vals.tag_ids = [[6, 0, args.tagIds]]
     }
+    if (typeof args.ocrEnabled === 'boolean') vals.ocr_enabled = args.ocrEnabled
     return odoo.callKw<number>('dms.file', 'create', [vals])
   },
 
@@ -285,5 +342,32 @@ export const ecmApi = {
       [['active', '=', true]],
       ['id', 'name', 'code', 'default_confidentiality', 'requires_approval', 'ocr_enabled'],
     ], { order: 'sequence, name' })
+  },
+
+  // ---- IA / Classificação ----
+  async aiClassifyNow(ids: number[], force = false): Promise<{ queued: number[]; skipped: number[] }> {
+    return odoo.callKw<{ queued: number[]; skipped: number[] }>(
+      'dms.file', 'ai_classify_now', [ids], { force },
+    )
+  },
+
+  async aiApplySuggestion(
+    suggestionId: number,
+    overrides?: AiSuggestionOverrides,
+  ): Promise<{ ok: boolean; document_id: number; directory_id?: number }> {
+    return odoo.callKw('dms.file', 'ai_apply_suggestion', [suggestionId, overrides || {}])
+  },
+
+  async aiRejectSuggestion(suggestionId: number, reason?: string): Promise<{ ok: boolean }> {
+    return odoo.callKw('dms.file', 'ai_reject_suggestion', [suggestionId, reason || ''])
+  },
+
+  async aiIgnoreSuggestion(suggestionId: number): Promise<{ ok: boolean }> {
+    return odoo.callKw('dms.file', 'ai_ignore_suggestion', [suggestionId])
+  },
+
+  async listAiSuggestions(documentIds: number[]): Promise<EcmAiSuggestion[]> {
+    if (!documentIds.length) return []
+    return odoo.callKw<EcmAiSuggestion[]>('dms.file', 'ai_list_suggestions', [documentIds])
   },
 }

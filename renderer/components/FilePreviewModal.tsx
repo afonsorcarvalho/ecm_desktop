@@ -7,6 +7,7 @@ import { FileIcon } from './FileIcon'
 import { ecmApi } from '@/lib/ecm-api'
 import { ShareButton } from './ShareButton'
 import { PdfTocPanel } from './PdfTocPanel'
+import { AiSuggestionPane } from './AiSuggestionPane'
 import type { TocResult } from '@/lib/pdf-toc'
 
 const PdfRenderer = dynamic(() => import('./PdfRenderer'), { ssr: false })
@@ -15,10 +16,11 @@ interface Props {
   fileId: number | null
   fileName?: string
   mimetype?: string
+  initialTab?: 'ocr' | 'toc' | 'ai'
   onClose: () => void
 }
 
-export function FilePreviewModal({ fileId, fileName, mimetype, onClose }: Props) {
+export function FilePreviewModal({ fileId, fileName, mimetype, initialTab, onClose }: Props) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -28,7 +30,7 @@ export function FilePreviewModal({ fileId, fileName, mimetype, onClose }: Props)
   const [canDownload, setCanDownload] = useState<boolean>(true)
   const [toc, setToc] = useState<TocResult | null>(null)
   const [tocLoading, setTocLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'ocr' | 'toc'>('ocr')
+  const [activeTab, setActiveTab] = useState<'ocr' | 'toc' | 'ai'>(initialTab || 'ocr')
 
   const isPdf = useMemo(
     () => (mimetype || '').toLowerCase().includes('pdf') || (fileName || '').toLowerCase().endsWith('.pdf'),
@@ -43,7 +45,7 @@ export function FilePreviewModal({ fileId, fileName, mimetype, onClose }: Props)
     let cancelled = false
     let createdBlob: string | null = null
     setBlobUrl(null); setError(null); setLoading(true); setPages(0); setPageNum(1); setOcrText(null); setCanDownload(true)
-    setToc(null); setTocLoading(false); setActiveTab('ocr')
+    setToc(null); setTocLoading(false); setActiveTab(initialTab || 'ocr')
     if (!fileId) return
 
     async function load(id: number) {
@@ -87,6 +89,7 @@ export function FilePreviewModal({ fileId, fileName, mimetype, onClose }: Props)
       cancelled = true
       if (createdBlob) URL.revokeObjectURL(createdBlob)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileId])
 
   useEffect(() => {
@@ -181,40 +184,35 @@ export function FilePreviewModal({ fileId, fileName, mimetype, onClose }: Props)
         </div>
 
         <aside className="border-l border-line bg-bg-soft flex flex-col overflow-hidden">
-          {isPdf ? (
-            <>
-              <div className="flex border-b border-line shrink-0">
-                {(['ocr', 'toc'] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`flex-1 px-3 py-2 text-xs uppercase tracking-wide transition-colors
-                      ${activeTab === tab
-                        ? 'text-accent border-b-2 border-accent bg-bg'
-                        : 'text-ink-muted hover:bg-bg-muted border-b-2 border-transparent'}`}
-                    title={tab === 'toc' ? 'Sumário (Ctrl+B)' : 'Texto OCR'}
-                  >
-                    {tab === 'ocr' ? 'OCR' : 'Sumário'}
-                  </button>
-                ))}
-              </div>
-              {activeTab === 'ocr' && <OcrPane ocrText={ocrText} />}
-              {activeTab === 'toc' && (
-                <PdfTocPanel
-                  toc={toc}
-                  loading={tocLoading}
-                  pageNum={pageNum}
-                  onPageChange={setPageNum}
-                />
-              )}
-            </>
-          ) : (
-            <>
-              <div className="px-4 py-3 border-b border-line text-xs uppercase tracking-wide text-ink-muted">
-                Texto extraído (OCR)
-              </div>
-              <OcrPane ocrText={ocrText} />
-            </>
+          <div className="flex border-b border-line shrink-0">
+            {(isPdf ? (['toc', 'ocr', 'ai'] as const) : (['ocr', 'ai'] as const)).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 px-3 py-2 text-xs uppercase tracking-wide transition-colors flex items-center justify-center gap-1.5
+                  ${activeTab === tab
+                    ? (tab === 'ai'
+                        ? 'text-violet-500 border-b-2 border-violet-500 bg-bg'
+                        : 'text-accent border-b-2 border-accent bg-bg')
+                    : 'text-ink-muted hover:bg-bg-muted border-b-2 border-transparent'}`}
+                title={tab === 'toc' ? 'Sumário (Ctrl+B)' : tab === 'ai' ? 'Sugestão IA' : 'Texto OCR'}
+              >
+                {tab === 'ai' && <span className="text-[10px]">✨</span>}
+                <span>{tab === 'ocr' ? 'OCR' : tab === 'toc' ? 'Sumário' : 'IA'}</span>
+              </button>
+            ))}
+          </div>
+          {activeTab === 'ocr' && <OcrPane ocrText={ocrText} />}
+          {activeTab === 'toc' && isPdf && (
+            <PdfTocPanel
+              toc={toc}
+              loading={tocLoading}
+              pageNum={pageNum}
+              onPageChange={setPageNum}
+            />
+          )}
+          {activeTab === 'ai' && (
+            <AiSuggestionPane fileId={fileId} fileName={fileName} active={activeTab === 'ai'} />
           )}
         </aside>
       </div>

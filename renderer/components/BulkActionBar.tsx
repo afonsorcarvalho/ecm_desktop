@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FolderInput, Trash2, Tag as TagIcon, FileType2, X, Loader2, ArchiveRestore } from 'lucide-react'
+import { FolderInput, Trash2, Tag as TagIcon, FileType2, X, Loader2, ArchiveRestore, Sparkles } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { ecmApi, EcmDirectory } from '@/lib/ecm-api'
 
@@ -104,6 +104,29 @@ export function BulkActionBar({ selectedIds, directories, onClear, trash }: Prop
     } finally { setBusy(false) }
   }
 
+  async function bulkClassifyAi() {
+    setBusy(true)
+    try {
+      const res = await toast.promise(
+        ecmApi.aiClassifyNow(selectedIds, false),
+        {
+          loading: `Enfileirando ${count} arquivo(s) pra classificação IA…`,
+          success: (r) => {
+            const parts: string[] = []
+            if (r.queued.length) parts.push(`${r.queued.length} enfileirado(s)`)
+            if (r.skipped.length) parts.push(`${r.skipped.length} ignorado(s) (sem OCR ou pasta excluída)`)
+            return parts.join(' • ') || 'Nada a fazer'
+          },
+          error: (e: any) => e?.message || 'Falha ao enfileirar',
+        },
+      )
+      // refresh imediato pra mostrar ai_state=pending; polling cuida do resto
+      if (res.queued.length) invalidateAfter()
+    } catch {
+      // toast já mostra
+    } finally { setBusy(false) }
+  }
+
   async function bulkAddTags(tagIds: number[]) {
     if (!tagIds.length) { setModal(null); return }
     setBusy(true)
@@ -152,6 +175,9 @@ export function BulkActionBar({ selectedIds, directories, onClear, trash }: Prop
             </BulkBtn>
             <BulkBtn onClick={() => setModal('tag')} disabled={busy}>
               <TagIcon size={14} /> Tags
+            </BulkBtn>
+            <BulkBtn onClick={bulkClassifyAi} disabled={busy} ai>
+              <Sparkles size={14} /> Classificar IA
             </BulkBtn>
             <BulkBtn onClick={bulkArchive} disabled={busy} danger>
               <Trash2 size={14} /> Lixeira
@@ -220,11 +246,12 @@ export function BulkActionBar({ selectedIds, directories, onClear, trash }: Prop
 }
 
 function BulkBtn({
-  onClick, disabled, danger, success, children,
-}: { onClick: () => void; disabled?: boolean; danger?: boolean; success?: boolean; children: React.ReactNode }) {
+  onClick, disabled, danger, success, ai, children,
+}: { onClick: () => void; disabled?: boolean; danger?: boolean; success?: boolean; ai?: boolean; children: React.ReactNode }) {
   let palette = 'bg-bg-soft hover:bg-bg border border-line hover:border-accent'
   if (danger) palette = 'bg-red-500/15 text-red-300 hover:bg-red-500/25 border border-red-500/30'
   if (success) palette = 'bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30'
+  if (ai) palette = 'bg-violet-500/15 text-violet-300 hover:bg-violet-500/25 border border-violet-500/40'
   return (
     <button
       onClick={onClick}
