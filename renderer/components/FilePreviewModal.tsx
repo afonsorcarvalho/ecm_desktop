@@ -11,6 +11,10 @@ import { AiSuggestionPane } from './AiSuggestionPane'
 import type { TocResult } from '@/lib/pdf-toc'
 
 const PdfRenderer = dynamic(() => import('./PdfRenderer'), { ssr: false })
+const OfficeRenderer = dynamic(
+  () => import('./OfficeRenderer').then((m) => m.OfficeRenderer),
+  { ssr: false },
+)
 
 interface Props {
   fileId: number | null
@@ -38,6 +42,14 @@ export function FilePreviewModal({ fileId, fileName, mimetype, initialTab, onClo
   )
   const isImage = useMemo(
     () => (mimetype || '').toLowerCase().startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp)$/i.test(fileName || ''),
+    [mimetype, fileName],
+  )
+  const isDocx = useMemo(
+    () => (mimetype || '').toLowerCase().includes('wordprocessingml') || /\.docx$/i.test(fileName || ''),
+    [mimetype, fileName],
+  )
+  const isXlsx = useMemo(
+    () => (mimetype || '').toLowerCase().includes('spreadsheetml') || /\.xlsx$/i.test(fileName || ''),
     [mimetype, fileName],
   )
 
@@ -175,7 +187,10 @@ export function FilePreviewModal({ fileId, fileName, mimetype, initialTab, onClo
             // eslint-disable-next-line @next/next/no-img-element
             <img src={blobUrl} alt={fileName || ''} className="max-w-full max-h-full object-contain" />
           )}
-          {!loading && !error && blobUrl && !isPdf && !isImage && (
+          {!loading && !error && blobUrl && (isDocx || isXlsx) && (
+            <OfficeRenderer url={blobUrl} kind={isDocx ? 'docx' : 'xlsx'} />
+          )}
+          {!loading && !error && blobUrl && !isPdf && !isImage && !isDocx && !isXlsx && (
             <div className="text-ink-muted text-center">
               <p>Pré-visualização indisponível para este formato.</p>
               <p className="text-xs mt-1">Use o botão "Baixar" no topo.</p>
