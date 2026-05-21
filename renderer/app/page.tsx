@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useEcmStore } from '@/store/ecmStore'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ecmApi } from '@/lib/ecm-api'
-import { Upload, Camera, Building2, Trash2, ArchiveRestore } from 'lucide-react'
+import { Upload, Camera, Building2, Trash2, ArchiveRestore, Sparkles } from 'lucide-react'
 import { FileIcon } from '@/components/FileIcon'
 import { FilePropertiesEditor } from '@/components/FilePropertiesEditor'
 import { DirectoryManualPanel } from '@/components/DirectoryManualPanel'
@@ -37,6 +37,8 @@ import { useFileSearch, SearchFilters } from '@/hooks/useFileSearch'
 import { useUpdater } from '@/hooks/useUpdater'
 import { useOcrNotifier } from '@/hooks/useOcrNotifier'
 import { BulkActionBar } from '@/components/BulkActionBar'
+import { useSemanticSearch } from '@/hooks/useSemanticSearch'
+import type { SearchResultRow } from '@/components/SearchResults'
 
 export default function HomePage() {
   const router = useNav()
@@ -54,6 +56,7 @@ export default function HomePage() {
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [previewId, setPreviewId] = useState<number | null>(null)
   const [previewInitialTab, setPreviewInitialTab] = useState<'ocr' | 'toc' | 'ai' | undefined>(undefined)
+  const [aiMode, setAiMode] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [filters, setFilters] = useState<SearchFilters>({})
   const [logoAspect, setLogoAspect] = useState<number | null>(null)
@@ -81,7 +84,21 @@ export default function HomePage() {
   const upload = useUploadQueue()
   useWatchFolder()
   useUpdater()
-  const search = useFileSearch(searchQuery, filters)
+  const search = useFileSearch(searchQuery, filters, !aiMode)
+  const semantic = useSemanticSearch(searchQuery, aiMode)
+  const semanticRows = useMemo<SearchResultRow[]>(
+    () =>
+      semantic.hits.map((h) => ({
+        id: h.id,
+        name: h.name,
+        mimetype: h.mimetype,
+        directory_id: h.directory ? [0, h.directory] : false,
+        document_type_id: h.tipo ? [0, h.tipo] : false,
+        score: h.score,
+      })) as SearchResultRow[],
+    [semantic.hits],
+  )
+  const resultsActive = aiMode ? semantic.isActive : search.isActive
 
   useEffect(() => {
     try { localStorage.setItem('ecm-sort', JSON.stringify(sort)) } catch {}
@@ -447,8 +464,24 @@ export default function HomePage() {
         <header className="sticky top-0 z-10 backdrop-blur bg-bg/80 border-b border-line px-6 py-3 space-y-2">
           <div className="flex items-center gap-3">
             <div className="flex-1 max-w-xl">
-              <SearchBar value={searchQuery} onChange={setSearchQuery} />
+              <SearchBar
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder={aiMode ? 'Busca em linguagem natural (IA)…' : undefined}
+              />
             </div>
+            <button
+              onClick={() => setAiMode((v) => !v)}
+              aria-pressed={aiMode}
+              className={`px-3 py-2 rounded-lg border text-sm flex items-center gap-1.5 transition ${
+                aiMode
+                  ? 'bg-accent text-white border-accent'
+                  : 'bg-bg-soft border-line hover:border-accent'
+              }`}
+              title="Alternar busca semântica por IA — resultados rankeados por similaridade"
+            >
+              <Sparkles size={16} /> Busca IA
+            </button>
             <button
               onClick={() => openNewFolder()}
               className="px-3 py-2 rounded-lg bg-bg-soft border border-line hover:border-accent text-sm flex items-center gap-1.5"
@@ -476,22 +509,31 @@ export default function HomePage() {
             </button>
             <UserMenu />
           </div>
-          {search.isActive && (
+          {!aiMode && search.isActive && (
             <FilterChips filters={filters} onChange={setFilters} />
           )}
         </header>
 
         <section className="p-6">
-          {search.isActive ? (
+          {resultsActive ? (
             <>
               <div className="flex items-baseline justify-between mb-4">
-                <h2 className="text-lg font-medium">Resultados para "{search.query}"</h2>
-                <span className="text-xs text-ink-dim">{search.results.length} encontrado(s)</span>
+                <h2 className="text-lg font-medium">
+                  {aiMode ? 'Busca IA: ' : 'Resultados para '}
+                  "{aiMode ? semantic.query : search.query}"
+                </h2>
+                <span className="text-xs text-ink-dim">
+                  {(aiMode ? semanticRows.length : search.results.length)} encontrado(s)
+                </span>
               </div>
               <SearchResults
-                query={search.query}
-                results={search.results}
-                loading={search.isLoading || search.isFetching}
+                query={aiMode ? semantic.query : search.query}
+                results={aiMode ? semanticRows : search.results}
+                loading={
+                  aiMode
+                    ? semantic.isLoading || semantic.isFetching
+                    : search.isLoading || search.isFetching
+                }
                 selectedId={selectedFileId}
                 onSelect={selectFile}
                 onOpen={(id) => setPreviewId(id)}
@@ -752,11 +794,13 @@ export default function HomePage() {
         fileId={previewId}
         fileName={
           files.data?.find((f) => f.id === previewId)?.name ??
-          search.results.find((f) => f.id === previewId)?.name
+          search.results.find((f) => f.id === previewId)?.name ??
+          semanticRows.find((r) => r.id === previewId)?.name
         }
         mimetype={
           files.data?.find((f) => f.id === previewId)?.mimetype ??
-          search.results.find((f) => f.id === previewId)?.mimetype
+          search.results.find((f) => f.id === previewId)?.mimetype ??
+          semanticRows.find((r) => r.id === previewId)?.mimetype
         }
         initialTab={previewInitialTab}
         onClose={() => { setPreviewId(null); setPreviewInitialTab(undefined) }}

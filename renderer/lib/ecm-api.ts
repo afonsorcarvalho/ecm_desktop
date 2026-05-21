@@ -370,4 +370,41 @@ export const ecmApi = {
     if (!documentIds.length) return []
     return odoo.callKw<EcmAiSuggestion[]>('dms.file', 'ai_list_suggestions', [documentIds])
   },
+
+  // ---- Busca semântica ----
+  /** Busca semântica via controller proxy afr_ecm (aplica ACL). `aiMode`
+   *  ativa o parse da query por IA (Groq) no microserviço. */
+  async semanticSearch(query: string, aiMode: boolean): Promise<SemanticSearchResponse> {
+    const result = await odoo.callRoute<SemanticSearchResponse>('/afr_ecm/semantic_search', {
+      query,
+      ai_mode: aiMode,
+    })
+    return result
+  },
+}
+
+export interface SemanticSearchHit {
+  id: number
+  name: string
+  directory: string
+  mimetype: string
+  score: number
+  tipo: string
+  mes: number
+  ano: number
+}
+
+export interface SemanticSearchResponse {
+  results: SemanticSearchHit[]
+  filters_applied?: { mes?: number; ano?: number }
+  error?: string
+}
+
+/** Wrapper standalone — mesma chamada de `ecmApi.semanticSearch`, exportado
+ *  como função para uso direto pelos componentes. */
+export async function semanticSearch(
+  query: string,
+  aiMode: boolean,
+): Promise<SemanticSearchResponse> {
+  return ecmApi.semanticSearch(query, aiMode)
 }

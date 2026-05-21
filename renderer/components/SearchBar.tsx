@@ -31,7 +31,7 @@ export const SearchBar = forwardRef<SearchBarHandle, Props>(function SearchBar(
         inputRef.current?.select()
       }
       if (e.key === 'Escape' && document.activeElement === inputRef.current) {
-        onChange('')
+        // Esc só tira o foco; a busca persiste até o usuário clicar no "x".
         inputRef.current?.blur()
       }
     }

@@ -96,6 +96,17 @@ class OdooClient {
     return data.result as T
   }
 
+  /** Chama um controller custom do Odoo (route type="json"). O `path` é o
+   *  caminho da rota (ex.: '/afr_ecm/semantic_search'); `params` vira o
+   *  objeto JSON-RPC `params` que o Odoo mapeia para os kwargs do método. */
+  async callRoute<T = unknown>(path: string, params: Record<string, unknown> = {}): Promise<T> {
+    const http = this.ensure()
+    const route = path.startsWith('/') ? path : `/${path}`
+    const { data } = await http.post<JsonRpcResponse<T>>(route, rpcPayload(params))
+    if (data.error) throw this.toError(data.error)
+    return data.result as T
+  }
+
   getBaseUrl() { return this.baseUrl }
 
   private toError(err: NonNullable<JsonRpcResponse['error']>): OdooError {

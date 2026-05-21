@@ -14,7 +14,7 @@ export interface SearchFilters {
 const MIN_CHARS = 2
 const DEBOUNCE_MS = 300
 
-export function useFileSearch(query: string, filters: SearchFilters = {}) {
+export function useFileSearch(query: string, filters: SearchFilters = {}, allowed = true) {
   const [debounced, setDebounced] = useState(query)
 
   useEffect(() => {
@@ -22,7 +22,7 @@ export function useFileSearch(query: string, filters: SearchFilters = {}) {
     return () => clearTimeout(t)
   }, [query])
 
-  const enabled = debounced.length >= MIN_CHARS
+  const enabled = allowed && debounced.length >= MIN_CHARS
 
   const q = useQuery({
     queryKey: ['search-files', debounced, filters],

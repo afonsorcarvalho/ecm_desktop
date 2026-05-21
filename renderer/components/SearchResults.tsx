@@ -5,9 +5,11 @@ import { FileIcon } from '@/components/FileIcon'
 import { buildSnippet } from '@/hooks/useFileSearch'
 import type { EcmFileSummary } from '@/lib/ecm-api'
 
+export type SearchResultRow = EcmFileSummary & { ocr_text?: string; score?: number }
+
 interface Props {
   query: string
-  results: (EcmFileSummary & { ocr_text?: string })[]
+  results: SearchResultRow[]
   loading: boolean
   selectedId: number | null
   onSelect: (id: number) => void
@@ -47,6 +49,7 @@ export function SearchResults({ query, results, loading, selectedId, onSelect, o
                   size={24}
                 />
                 <p className="text-sm font-medium truncate"><Highlighted text={f.name} query={query} /></p>
+                {typeof f.score === 'number' && <ScorePill score={f.score} />}
                 {f.ocr_state && <OcrPill state={f.ocr_state} />}
               </div>
               <div className="text-xs text-ink-dim flex gap-2 flex-wrap mb-1">
@@ -79,6 +82,18 @@ function Highlighted({ text, query }: { text: string; query: string }) {
   )
 }
 function escapeRe(s: string) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') }
+
+function ScorePill({ score }: { score: number }) {
+  const pct = Math.round(score * 100)
+  return (
+    <span
+      className="ml-auto shrink-0 text-[10px] font-mono px-1.5 py-0.5 rounded bg-accent/15 text-accent"
+      title="Similaridade semântica"
+    >
+      {pct}%
+    </span>
+  )
+}
 
 function OcrPill({ state }: { state: string }) {
   const map: Record<string, string> = {
