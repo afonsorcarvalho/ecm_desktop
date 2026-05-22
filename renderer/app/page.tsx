@@ -526,6 +526,28 @@ export default function HomePage() {
                   {(aiMode ? semanticRows.length : search.results.length)} encontrado(s)
                 </span>
               </div>
+              {aiMode && semantic.aiParse && (
+                <div className="mb-4 rounded-lg border border-line bg-bg-soft px-3 py-2 text-xs text-ink-dim flex flex-wrap gap-x-4 gap-y-1">
+                  <span className="text-ink-muted font-medium">IA interpretou:</span>
+                  {semantic.aiParse.tipo_documento && (
+                    <span>tipo=<b className="text-ink">{semantic.aiParse.tipo_documento}</b></span>
+                  )}
+                  {(semantic.aiParse.mes || semantic.aiParse.ano) && (
+                    <span>período=<b className="text-ink">{semantic.aiParse.mes ?? '?'}/{semantic.aiParse.ano ?? '?'}</b></span>
+                  )}
+                  {!!semantic.aiParse.keywords_adicionais?.length && (
+                    <span>keywords=<b className="text-ink">{semantic.aiParse.keywords_adicionais.join(', ')}</b></span>
+                  )}
+                  {!!semantic.aiParse.entidades?.length && (
+                    <span>entidades=<b className="text-ink">{semantic.aiParse.entidades.join(', ')}</b></span>
+                  )}
+                  {!semantic.aiParse.tipo_documento &&
+                    !semantic.aiParse.mes &&
+                    !semantic.aiParse.ano &&
+                    !semantic.aiParse.keywords_adicionais?.length &&
+                    !semantic.aiParse.entidades?.length && <span>(Groq não extraiu nada)</span>}
+                </div>
+              )}
               <SearchResults
                 query={aiMode ? semantic.query : search.query}
                 results={aiMode ? semanticRows : search.results}

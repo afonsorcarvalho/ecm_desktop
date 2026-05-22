@@ -394,9 +394,18 @@ export interface SemanticSearchHit {
   ano: number
 }
 
+export interface SemanticAiParse {
+  tipo_documento?: string | null
+  mes?: number | null
+  ano?: number | null
+  keywords_adicionais?: string[]
+  entidades?: string[]
+}
+
 export interface SemanticSearchResponse {
   results: SemanticSearchHit[]
-  filters_applied?: { mes?: number; ano?: number }
+  filters_applied?: { mes?: number; ano?: number; min_score?: number; rel_cutoff?: number }
+  ai_parse?: SemanticAiParse | null
   error?: string
 }
 

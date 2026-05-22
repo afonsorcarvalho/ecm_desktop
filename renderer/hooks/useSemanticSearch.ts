@@ -30,6 +30,7 @@ export function useSemanticSearch(query: string, enabled: boolean) {
     isLoading: q.isLoading,
     isFetching: q.isFetching,
     hits: (q.data?.results ?? []) as SemanticSearchHit[],
+    aiParse: q.data?.ai_parse ?? null,
     error: q.error ?? (q.data?.error ? new Error(q.data.error) : null),
   }
 }
